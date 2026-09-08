@@ -1,0 +1,101 @@
+export interface ServiceCategory {
+  id: string;
+  label: string;
+  icon: string;
+  items: string[];
+}
+
+export const serviceCategories: ServiceCategory[] = [
+  {
+    id: 'instalacao',
+    label: 'Instalação e Configurações',
+    icon: 'Settings',
+    items: [
+      'Instalação do eSistemLoja, eSistemNFCe e eSistemIntegra (última release)',
+      'Atualização do eSistemLoja, eSistemNFCe e eSistemIntegra',
+      'Instalação do eSistemCheff',
+      'Configuração do backup automático',
+      'Instalação e configuração do certificado digital',
+      'Instalação do equipamento no local',
+      'Configuração do equipamento na rede',
+      'Confecção de cabo de rede',
+      'Instalação e configuração da impressora',
+      'Instalação do ponto eletrônico no local',
+      'Configuração do IDCloud',
+      'Instalação e configuração do aplicativo de ponto mobile',
+    ],
+  },
+  {
+    id: 'fiscal',
+    label: 'Treinamento Fiscal',
+    icon: 'FileText',
+    items: [
+      'Cadastro de clientes',
+      'Cadastro de produtos',
+      'Download de XML de notas fiscais',
+      'Entrada de notas fiscais por importação de XML',
+      'Relação de produtos cadastrados',
+      'Precificação',
+      'Alteração cadastral de produtos (descrição, código de barras, valor à vista e unidade de venda)',
+      'Preenchimento do perfil tributário',
+      'Emissão de nota fiscal de saída',
+      'Consulta de inscrição estadual',
+      'Cadastro de pessoas',
+      'Emissão de cupom fiscal',
+      'Formas de pagamento',
+      'Cancelamento de cupom fiscal',
+      'Transmissão de cupom fiscal em contingência',
+      'Importação NFe Base de Dados SEFAZ',
+      'Relatórios',
+    ],
+  },
+  {
+    id: 'gerencial',
+    label: 'Treinamento Gerencial',
+    icon: 'BarChart3',
+    items: [
+      'Cadastro de clientes',
+      'Cadastro de produtos',
+      'Movimentação de estoque',
+      'Gerenciamento de caixa',
+      'Venda rápida',
+      'Movimentações',
+      'Títulos a receber',
+      'Títulos a pagar',
+      'Relatórios',
+    ],
+  },
+  {
+    id: 'rhid',
+    label: 'Treinamento RHID',
+    icon: 'CircleDot',
+    items: [
+      'Cadastro de horários',
+      'Cadastro de escalas',
+      'Cadastro de funcionários',
+      'Cadastro de biometria',
+      'Verificação e apuração de ponto',
+      'Relatórios',
+      'Relatório REP-P (conferência facial e localização)',
+      'Utilização do ponto mobile',
+      'Troca de bobina',
+    ],
+  },
+  {
+    id: 'cheff',
+    label: 'Treinamento Cheff',
+    icon: 'UtensilsCrossed',
+    items: [
+      'Cadastro de produtos',
+      'Importação de produtos',
+      'Mapa de produtos',
+      'Mapa de mesas',
+      'Fluxo de caixa e relatórios',
+      'Módulo Mesa',
+      'Módulo Mobile',
+      'Módulo Comanda',
+      'Módulo Delivery',
+      'Módulo Ficha',
+    ],
+  },
+];
