@@ -3,6 +3,7 @@
 # Faz: (opcional) cria o projeto, roda supabase\schema.sql,
 #      desliga cadastro aberto, cria os usuarios (tecnicos).
 # Uso (na pasta do projeto):
+#   powershell -ExecutionPolicy Bypass -File .\configurar-supabase.ps1   (se estiver na raiz)
 #   powershell -ExecutionPolicy Bypass -File .\scripts\configurar-supabase.ps1
 # Nada e gravado em disco. Token e chaves ficam so na memoria.
 # ============================================================
@@ -41,8 +42,12 @@ function Call($method, $url, $headers, $body) {
   }
 }
 
-$schemaPath = Join-Path $PSScriptRoot '..\supabase\schema.sql'
-if (-not (Test-Path $schemaPath)) { throw "Nao achei $schemaPath. Rode a partir da pasta do projeto." }
+# Funciona com o script na raiz do projeto ou dentro de scripts\
+$schemaPath = $null
+foreach ($c in @((Join-Path $PSScriptRoot 'supabase\schema.sql'), (Join-Path $PSScriptRoot '..\supabase\schema.sql'), (Join-Path (Get-Location) 'supabase\schema.sql'))) {
+  if (Test-Path $c) { $schemaPath = $c; break }
+}
+if (-not $schemaPath) { throw 'Nao achei supabase\schema.sql. Rode dentro da pasta do projeto (onde existe a pasta supabase).' }
 $sql = Get-Content -Raw -Encoding UTF8 $schemaPath
 
 Write-Host ''
