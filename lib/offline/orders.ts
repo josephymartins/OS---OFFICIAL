@@ -1,10 +1,11 @@
 /**
- * CRUD de Ordens de Serviço usando IndexedDB (offline).
- * Substitui as rotas /api/save-order, /api/orders e /api/orders/[id]/pdf.
+ * CRUD de Ordens de Serviço via API (dados na nuvem, separados por usuário).
+ * Mantém as mesmas funções exportadas da versão offline.
  */
 
-import { getDb, generateId, STORE_ORDERS, type OfflineOrder } from './db';
-import { savePdf, deletePdf } from './files';
+import type { OfflineOrder } from './db';
+import { savePdf } from './files';
+import { api, readJson } from './api';
 
 export interface CreateOrderInput {
   clientName?: string | null;
@@ -31,62 +32,34 @@ export interface CreateOrderInput {
   pdfBlob?: Blob | null;
 }
 
-/** Cria uma nova ordem localmente. Se pdfBlob for fornecido, guarda o PDF também. */
+/** Cria uma nova ordem. Se pdfBlob for fornecido, envia o PDF também. */
 export async function createOrder(input: CreateOrderInput): Promise<OfflineOrder> {
-  const db = await getDb();
-  const now = new Date().toISOString();
-  const id = generateId();
+  const { pdfBlob, ...fields } = input;
+  const res = await api('/api/orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fields),
+  });
+  const order = await readJson<OfflineOrder>(res, 'Não foi possível salvar a ordem de serviço');
 
-  const order: OfflineOrder = {
-    id,
-    clientName: input.clientName ?? null,
-    clientCpf: input.clientCpf ?? null,
-    clientFantasia: input.clientFantasia ?? null,
-    clientCnpj: input.clientCnpj ?? null,
-    clientEndereco: input.clientEndereco ?? null,
-    clientCidade: input.clientCidade ?? null,
-    clientCep: input.clientCep ?? null,
-    clientTelefone: input.clientTelefone ?? null,
-    clientEmail: input.clientEmail ?? null,
-    numeroOs: input.numeroOs ?? null,
-    equipamento: input.equipamento ?? null,
-    tecnico: input.tecnico ?? null,
-    problemaInformado: input.problemaInformado ?? null,
-    selectedServices: input.selectedServices ?? '[]',
-    observacoes: input.observacoes ?? null,
-    dataAtendimento: input.dataAtendimento ?? null,
-    horaEntrada: input.horaEntrada ?? null,
-    horaSaida: input.horaSaida ?? null,
-    responsavel: input.responsavel ?? null,
-    signatureData: input.signatureData ?? null,
-    hasPdf: !!input.pdfBlob,
-    status: input.status ?? 'finalizado',
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  await db.put(STORE_ORDERS, order);
-
-  if (input.pdfBlob) {
-    await savePdf(id, input.pdfBlob);
+  if (pdfBlob) {
+    await savePdf(order.id, pdfBlob);
+    order.hasPdf = true;
   }
-
   return order;
 }
 
-/** Lista as ordens (mais recentes primeiro). */
+/** Lista as ordens do usuário (mais recentes primeiro). */
 export async function listOrders(limit = 200): Promise<OfflineOrder[]> {
-  const db = await getDb();
-  const all = (await db.getAll(STORE_ORDERS)) as OfflineOrder[];
-  return (all ?? [])
-    .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
-    .slice(0, limit);
+  const res = await api(`/api/orders?limit=${limit}`);
+  return readJson<OfflineOrder[]>(res, 'Não foi possível carregar as ordens');
 }
 
 /** Busca uma ordem pelo id. */
 export async function getOrder(id: string): Promise<OfflineOrder | undefined> {
-  const db = await getDb();
-  return (await db.get(STORE_ORDERS, id)) as OfflineOrder | undefined;
+  const res = await api(`/api/orders/${encodeURIComponent(id)}`);
+  if (res.status === 404) return undefined;
+  return readJson<OfflineOrder>(res, 'Não foi possível carregar a ordem');
 }
 
 /** Atualiza uma ordem existente. */
@@ -94,17 +67,13 @@ export async function updateOrder(
   id: string,
   patch: Partial<OfflineOrder>
 ): Promise<OfflineOrder | undefined> {
-  const db = await getDb();
-  const existing = (await db.get(STORE_ORDERS, id)) as OfflineOrder | undefined;
-  if (!existing) return undefined;
-  const updated: OfflineOrder = {
-    ...existing,
-    ...patch,
-    id: existing.id,
-    updatedAt: new Date().toISOString(),
-  };
-  await db.put(STORE_ORDERS, updated);
-  return updated;
+  const res = await api(`/api/orders/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  if (res.status === 404) return undefined;
+  return readJson<OfflineOrder>(res, 'Não foi possível atualizar a ordem');
 }
 
 /** Arquiva (ou desarquiva) uma ordem, sem apagá-la. */
@@ -117,9 +86,8 @@ export async function setArchived(
 
 /** Exclui uma ordem e o PDF associado. */
 export async function deleteOrder(id: string): Promise<void> {
-  const db = await getDb();
-  await db.delete(STORE_ORDERS, id);
-  await deletePdf(id);
+  const res = await api(`/api/orders/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Não foi possível excluir a ordem');
 }
 
 /** Conta o número de serviços de uma ordem (a partir do JSON armazenado). */

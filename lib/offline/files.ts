@@ -1,32 +1,25 @@
-/**
- * Armazenamento de PDFs gerados no IndexedDB (substitui AWS S3).
- * Cada PDF é guardado como Blob associado ao id da ordem.
- */
+/** PDFs das ordens, guardados na nuvem e acessados via API. */
 
-import { getDb, STORE_PDFS } from './db';
+import { api } from './api';
 
-interface PdfRecord {
-  orderId: string;
-  blob: Blob;
-  createdAt: string;
-}
+const pdfUrl = (orderId: string) => `/api/orders/${encodeURIComponent(orderId)}/pdf`;
 
 /** Salva (ou substitui) o PDF de uma ordem. */
 export async function savePdf(orderId: string, blob: Blob): Promise<void> {
-  const db = await getDb();
-  const record: PdfRecord = {
-    orderId,
-    blob,
-    createdAt: new Date().toISOString(),
-  };
-  await db.put(STORE_PDFS, record);
+  const res = await api(pdfUrl(orderId), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/pdf' },
+    body: blob,
+  });
+  if (!res.ok) throw new Error('A ordem foi salva, mas não foi possível enviar o PDF');
 }
 
 /** Recupera o Blob do PDF de uma ordem (ou null se não existir). */
 export async function getPdfBlob(orderId: string): Promise<Blob | null> {
-  const db = await getDb();
-  const record = (await db.get(STORE_PDFS, orderId)) as PdfRecord | undefined;
-  return record?.blob ?? null;
+  const res = await api(pdfUrl(orderId));
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error('Não foi possível carregar o PDF');
+  return res.blob();
 }
 
 /** Cria uma object URL temporária para o PDF de uma ordem. */
@@ -38,6 +31,5 @@ export async function getPdfObjectUrl(orderId: string): Promise<string | null> {
 
 /** Remove o PDF de uma ordem. */
 export async function deletePdf(orderId: string): Promise<void> {
-  const db = await getDb();
-  await db.delete(STORE_PDFS, orderId);
+  await api(pdfUrl(orderId), { method: 'DELETE' });
 }
