@@ -1,69 +1,30 @@
 generator client {
-    provider = "prisma-client-js"
-    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
-    output = "/home/ubuntu/ordem_servico_app/nextjs_space/node_modules/.prisma/client"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            String         @id @default(cuid())
   name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
+  email         String         @unique
   password      String?
-  role          String    @default("tecnico")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  accounts      Account[]
-  sessions      Session[]
+  role          String         @default("tecnico")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   serviceOrders ServiceOrder[]
-}
-
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
+  settings      UserSetting[]
 }
 
 model ServiceOrder {
   id                String   @id @default(cuid())
   userId            String
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Client data extracted from PDF
+
   clientName        String?
   clientCpf         String?
   clientFantasia    String?
@@ -77,28 +38,39 @@ model ServiceOrder {
   equipamento       String?
   tecnico           String?
   problemaInformado String?  @db.Text
-  
-  // Service details
-  selectedServices  String   @db.Text  // JSON stringified array
+
+  selectedServices  String   @db.Text // JSON em texto
   observacoes       String?  @db.Text
-  
-  // Attendance details
+
   dataAtendimento   String?
   horaEntrada       String?
   horaSaida         String?
   responsavel       String?
-  
-  // File storage
-  signatureData     String?  @db.Text  // base64 signature image
-  uploadedPdfPath   String?  // cloud_storage_path for uploaded PDF
-  uploadedPdfPublic Boolean  @default(false)
-  generatedPdfPath  String?  // cloud_storage_path for generated PDF
-  generatedPdfPublic Boolean @default(false)
-  
-  status            String   @default("rascunho")
+
+  signatureData     String?  @db.Text
+  archived          Boolean  @default(false)
+  status            String   @default("finalizado")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  pdf               OrderPdf?
+
   @@index([userId])
   @@index([createdAt])
+}
+
+model OrderPdf {
+  orderId   String       @id
+  order     ServiceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  data      Bytes
+  createdAt DateTime     @default(now())
+}
+
+model UserSetting {
+  userId String
+  key    String
+  value  String @db.Text // JSON em texto
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, key])
 }

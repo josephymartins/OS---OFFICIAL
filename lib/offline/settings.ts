@@ -1,22 +1,26 @@
-/**
- * Configurações e metadados locais (IndexedDB).
- * Uso genérico chave/valor para preferências do app offline.
- */
+/** Configurações por usuário (chave/valor), guardadas na nuvem. */
 
-import { getDb, STORE_SETTINGS } from './db';
+import { api } from './api';
+
+const settingUrl = (key: string) => `/api/settings/${encodeURIComponent(key)}`;
 
 export async function getSetting<T = any>(key: string): Promise<T | undefined> {
-  const db = await getDb();
-  const record = (await db.get(STORE_SETTINGS, key)) as { key: string; value: T } | undefined;
-  return record?.value;
+  const res = await api(settingUrl(key));
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new Error('Não foi possível carregar a configuração');
+  const data = (await res.json()) as { value: T };
+  return data.value ?? undefined;
 }
 
 export async function setSetting<T = any>(key: string, value: T): Promise<void> {
-  const db = await getDb();
-  await db.put(STORE_SETTINGS, { key, value });
+  const res = await api(settingUrl(key), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value }),
+  });
+  if (!res.ok) throw new Error('Não foi possível salvar a configuração');
 }
 
 export async function deleteSetting(key: string): Promise<void> {
-  const db = await getDb();
-  await db.delete(STORE_SETTINGS, key);
+  await api(settingUrl(key), { method: 'DELETE' });
 }
