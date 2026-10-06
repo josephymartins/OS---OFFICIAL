@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     ? await prisma.serviceOrder.upsert({
         where: { id },
         update: data,
-        create: { ...data, id, userId, createdAt },
+        create: { ...data, id, userId, createdAt } as any,
       })
     : await prisma.serviceOrder.create({ data: { ...data, userId, createdAt } as any });
 
