@@ -28,6 +28,12 @@ function friendlyAuthError(message: string): string {
   const m = message.toLowerCase();
   if (m.includes('invalid login credentials')) return 'E-mail ou senha incorretos.';
   if (m.includes('email not confirmed')) return 'E-mail ainda não confirmado no Supabase.';
+  if (m.includes('database error saving new user'))
+    return 'Código de convite inválido. Confira com quem administra o app.';
+  if (m.includes('already registered') || m.includes('already been registered'))
+    return 'Este e-mail já tem conta. Use a opção Entrar.';
+  if (m.includes('password should be at least'))
+    return 'A senha precisa ter pelo menos 8 caracteres.';
   if (m.includes('failed to fetch') || m.includes('network'))
     return 'Sem conexão com a internet. Tente novamente.';
   return message;
@@ -42,20 +48,41 @@ function Centered({ children }: { children: React.ReactNode }) {
 }
 
 function LoginForm() {
+  const [mode, setMode] = useState<'entrar' | 'cadastrar'>('entrar');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+
+  const signingUp = mode === 'cadastrar';
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const { error } = await getSupabase().auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-    if (error) setError(friendlyAuthError(error.message));
+    setInfo(null);
+    const supabase = getSupabase();
+    if (signingUp) {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: { data: { invite_code: inviteCode.trim() } },
+      });
+      if (error) setError(friendlyAuthError(error.message));
+      else if (!data.session) {
+        setInfo('Conta criada. Agora entre com seu e-mail e senha.');
+        setMode('entrar');
+      }
+      // com sessão criada, o AuthGate entra sozinho
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (error) setError(friendlyAuthError(error.message));
+    }
     setBusy(false);
   }
 
@@ -64,7 +91,11 @@ function LoginForm() {
       <form onSubmit={onSubmit} className="space-y-4 rounded-xl border bg-card p-6 shadow-sm">
         <div className="space-y-1">
           <h1 className="text-xl font-semibold">AUTOCOM</h1>
-          <p className="text-sm text-muted-foreground">Ordem de Serviço — entre com seu acesso</p>
+          <p className="text-sm text-muted-foreground">
+            {signingUp
+              ? 'Ordem de Serviço — crie seu acesso'
+              : 'Ordem de Serviço — entre com seu acesso'}
+          </p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="login-email">E-mail</Label>
@@ -78,24 +109,53 @@ function LoginForm() {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="login-password">Senha</Label>
+          <Label htmlFor="login-password">
+            {signingUp ? 'Senha (mínimo 8 caracteres)' : 'Senha'}
+          </Label>
           <Input
             id="login-password"
             type="password"
-            autoComplete="current-password"
+            autoComplete={signingUp ? 'new-password' : 'current-password'}
             required
+            minLength={signingUp ? 8 : undefined}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
+        {signingUp && (
+          <div className="space-y-2">
+            <Label htmlFor="login-invite">Código de convite</Label>
+            <Input
+              id="login-invite"
+              type="text"
+              autoComplete="off"
+              autoCapitalize="off"
+              required
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+            />
+          </div>
+        )}
+        {info && <p className="text-sm text-green-700">{info}</p>}
         {error && (
           <p role="alert" className="text-sm text-red-600">
             {error}
           </p>
         )}
         <Button type="submit" className="w-full" disabled={busy}>
-          {busy ? 'Entrando…' : 'Entrar'}
+          {busy ? 'Aguarde…' : signingUp ? 'Criar conta' : 'Entrar'}
         </Button>
+        <button
+          type="button"
+          className="w-full text-center text-sm text-muted-foreground underline underline-offset-2"
+          onClick={() => {
+            setMode(signingUp ? 'entrar' : 'cadastrar');
+            setError(null);
+            setInfo(null);
+          }}
+        >
+          {signingUp ? 'Já tenho conta — entrar' : 'Primeiro acesso? Criar conta'}
+        </button>
       </form>
     </Centered>
   );
