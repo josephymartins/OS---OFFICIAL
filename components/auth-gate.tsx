@@ -12,7 +12,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
+import { saveOrShareFile } from '@/lib/save-file';
 import {
+  buildLegacyBackup,
   countLegacyOrders,
   isLegacyMigrated,
   migrateLegacyToCloud,
@@ -104,6 +106,9 @@ function MigrationBanner() {
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<[number, number]>([0, 0]);
   const [result, setResult] = useState<MigrationResult | null>(null);
+  const [backup, setBackup] = useState<{ blob: Blob; count: number } | null>(null);
+  const [preparing, setPreparing] = useState(false);
+  const [backupMsg, setBackupMsg] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -116,6 +121,30 @@ function MigrationBanner() {
       cancelled = true;
     };
   }, []);
+
+  // Passo 1: lê os dados do aparelho e monta o arquivo (pode demorar alguns segundos).
+  async function prepareBackup() {
+    setPreparing(true);
+    setBackupMsg(null);
+    try {
+      const b = await buildLegacyBackup();
+      if (b) setBackup(b);
+      else setBackupMsg('Não encontrei dados neste aparelho.');
+    } catch (err) {
+      console.error(err);
+      setBackupMsg('Não consegui montar a cópia. Você ainda pode enviar para a nuvem.');
+    } finally {
+      setPreparing(false);
+    }
+  }
+
+  // Passo 2: precisa ser chamado direto do toque, para o iPhone abrir o compartilhar.
+  async function shareBackup() {
+    if (!backup) return;
+    const stamp = new Date().toISOString().slice(0, 10);
+    const r = await saveOrShareFile(backup.blob, `backup_aparelho_${stamp}.json`);
+    if (r !== 'cancelled') setBackupMsg('Cópia entregue. Guarde o arquivo em Arquivos/iCloud ou envie para você mesmo.');
+  }
 
   const run = useCallback(async () => {
     setRunning(true);
@@ -149,9 +178,19 @@ function MigrationBanner() {
           ? `${result.failed} ordem(ns) não foram enviadas. Verifique a internet e tente de novo.`
           : `Encontrei ${pending} ordem(ns) salvas só neste aparelho.`}
       </span>
-      <Button size="sm" onClick={run} disabled={running}>
+      {!backup ? (
+        <Button size="sm" variant="outline" onClick={prepareBackup} disabled={preparing || running}>
+          {preparing ? 'Preparando…' : '1. Salvar cópia (arquivo)'}
+        </Button>
+      ) : (
+        <Button size="sm" variant="outline" onClick={shareBackup}>
+          {`Compartilhar arquivo (${backup.count} ordens)`}
+        </Button>
+      )}
+      <Button size="sm" onClick={run} disabled={running || preparing}>
         {running ? `Enviando… ${progress[0]}/${progress[1]}` : 'Enviar para a nuvem'}
       </Button>
+      {backupMsg && <span className="basis-full text-xs">{backupMsg}</span>}
     </div>
   );
 }
