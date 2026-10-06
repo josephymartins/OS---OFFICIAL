@@ -7,6 +7,7 @@
 import { openDB } from 'idb';
 import type { OfflineOrder } from './db';
 import { upsertOrder } from './orders';
+import { BACKUP_FORMAT, BACKUP_VERSION, blobToBase64 } from './backup';
 
 const LEGACY_DB_NAME = 'autocom_os_offline';
 const MIGRATED_FLAG = 'autocom_os_legacy_migrated';
@@ -112,6 +113,46 @@ export async function migrateLegacyToCloud(
       }
     }
     return { total, migrated, failed };
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Monta um arquivo de backup (.json, mesmo formato "autocom-os-backup") com
+ * TUDO que está salvo neste aparelho, lendo direto do banco antigo. Serve de
+ * cópia de segurança antes de enviar para a nuvem. Não altera nada.
+ */
+export async function buildLegacyBackup(): Promise<{ blob: Blob; count: number } | null> {
+  const db = await openLegacyDb();
+  if (!db) return null;
+  try {
+    if (!db.objectStoreNames.contains('orders')) return null;
+    const orders = (await db.getAll('orders')) as OfflineOrder[];
+    const pdfs: Array<{ orderId: string; base64: string; type: string }> = [];
+    if (db.objectStoreNames.contains('pdfs')) {
+      const records = (await db.getAll('pdfs')) as LegacyPdfRecord[];
+      for (const rec of records) {
+        if (rec?.orderId && rec.blob) {
+          pdfs.push({
+            orderId: rec.orderId,
+            base64: await blobToBase64(rec.blob),
+            type: rec.blob.type || 'application/pdf',
+          });
+        }
+      }
+    }
+    const backup = {
+      format: BACKUP_FORMAT,
+      version: BACKUP_VERSION,
+      exportedAt: new Date().toISOString(),
+      orders,
+      pdfs,
+    };
+    return {
+      blob: new Blob([JSON.stringify(backup)], { type: 'application/json' }),
+      count: orders.length,
+    };
   } finally {
     db.close();
   }

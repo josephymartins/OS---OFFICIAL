@@ -32,7 +32,7 @@ export interface BackupFile {
 }
 
 /** Converte um Blob em string base64 (sem o prefixo data:). */
-function blobToBase64(blob: Blob): Promise<string> {
+export function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => {
