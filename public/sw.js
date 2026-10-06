@@ -14,7 +14,7 @@
  *    e falham silenciosamente quando offline (não bloqueiam o app).
  */
 
-const VERSION = 'v1';
+const VERSION = 'v2';
 const STATIC_CACHE = `autocom-static-${VERSION}`;
 const RUNTIME_CACHE = `autocom-runtime-${VERSION}`;
 
