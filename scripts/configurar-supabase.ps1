@@ -48,7 +48,8 @@ foreach ($c in @((Join-Path $PSScriptRoot 'supabase\schema.sql'), (Join-Path $PS
   if (Test-Path $c) { $schemaPath = $c; break }
 }
 if (-not $schemaPath) { throw 'Nao achei supabase\schema.sql. Rode dentro da pasta do projeto (onde existe a pasta supabase).' }
-$sql = Get-Content -Raw -Encoding UTF8 $schemaPath
+# ReadAllText devolve string pura (Get-Content -Raw vira objeto no ConvertTo-Json)
+$sql = [string][IO.File]::ReadAllText((Resolve-Path $schemaPath).Path, [Text.Encoding]::UTF8)
 
 Write-Host ''
 Write-Host 'Crie um token em https://supabase.com/dashboard/account/tokens (Generate new token).' -ForegroundColor Cyan
