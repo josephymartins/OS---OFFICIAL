@@ -53,6 +53,9 @@ $sql = Get-Content -Raw -Encoding UTF8 $schemaPath
 Write-Host ''
 Write-Host 'Crie um token em https://supabase.com/dashboard/account/tokens (Generate new token).' -ForegroundColor Cyan
 $token = Read-Secret 'Cole o token pessoal do Supabase'
+# Remove espacos, quebras de linha e qualquer caractere invisivel colado junto
+$token = ($token -replace '[^\x21-\x7E]', '')
+if (-not $token.StartsWith('sbp_')) { throw 'Token invalido: ele deve comecar com sbp_ . Gere outro e cole de novo.' }
 $h = @{ Authorization = "Bearer $token" }
 
 $ref = (Read-Host 'Ref do projeto (o codigo na URL do projeto). Deixe VAZIO para criar um novo').Trim()
