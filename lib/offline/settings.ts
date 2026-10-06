@@ -1,22 +1,31 @@
 /**
- * Configurações e metadados locais (IndexedDB).
- * Uso genérico chave/valor para preferências do app offline.
+ * Preferências locais do aparelho (localStorage).
+ * Uso genérico chave/valor; não são dados das ordens de serviço.
  */
 
-import { getDb, STORE_SETTINGS } from './db';
+const PREFIX = 'autocom_os_';
 
 export async function getSetting<T = any>(key: string): Promise<T | undefined> {
-  const db = await getDb();
-  const record = (await db.get(STORE_SETTINGS, key)) as { key: string; value: T } | undefined;
-  return record?.value;
+  try {
+    const raw = window.localStorage.getItem(PREFIX + key);
+    return raw === null ? undefined : (JSON.parse(raw) as T);
+  } catch {
+    return undefined;
+  }
 }
 
 export async function setSetting<T = any>(key: string, value: T): Promise<void> {
-  const db = await getDb();
-  await db.put(STORE_SETTINGS, { key, value });
+  try {
+    window.localStorage.setItem(PREFIX + key, JSON.stringify(value));
+  } catch {
+    /* armazenamento indisponível: ignora */
+  }
 }
 
 export async function deleteSetting(key: string): Promise<void> {
-  const db = await getDb();
-  await db.delete(STORE_SETTINGS, key);
+  try {
+    window.localStorage.removeItem(PREFIX + key);
+  } catch {
+    /* ignora */
+  }
 }

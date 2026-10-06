@@ -1,7 +1,8 @@
 'use client';
 
-// Sem autenticação: o app funciona 100% offline e abre direto na tela principal.
-// Mantido como wrapper simples para preservar a estrutura do layout.
+import { AuthGate } from '@/components/auth-gate';
+
+// Todo o app fica atrás do login (Supabase Auth).
 export function Providers({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return <AuthGate>{children}</AuthGate>;
 }
