@@ -33,3 +33,15 @@ Depois faça **Redeploy**.
 4. Se preferir, também dá para usar **Importar backup** no histórico com o `.json`.
 
 Cada técnico vê somente as próprias ordens (RLS por `user_id`).
+
+## Cadastro dos técnicos pelo próprio app (código de convite)
+Em vez de criar usuários no painel, os técnicos podem criar a própria conta na tela do app
+(**Primeiro acesso? Criar conta**), informando e-mail, senha (mín. 8) e o **código de convite**.
+
+1. Rode `scripts/configurar-convite.ps1` (pede o token do Supabase e o código que você escolher).
+   Ele cria a regra no banco, liga o cadastro e desliga a confirmação por e-mail.
+2. Entregue o código só aos técnicos. Para trocar o código, rode o script de novo.
+3. A checagem do código é feita no banco: sem o código certo o cadastro é recusado.
+
+Atenção: com a regra ativa, usuários criados pelo painel (Add user) também exigem o código e
+serão recusados. Crie os técnicos pelo app. Contas que já existiam continuam funcionando.
