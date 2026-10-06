@@ -52,9 +52,16 @@ $sql = Get-Content -Raw -Encoding UTF8 $schemaPath
 
 Write-Host ''
 Write-Host 'Crie um token em https://supabase.com/dashboard/account/tokens (Generate new token).' -ForegroundColor Cyan
-$token = Read-Secret 'Cole o token pessoal do Supabase'
+# Opcao 1: variavel de ambiente ($env:SUPABASE_TOKEN = 'sbp_...') antes de rodar o script
+$token = $env:SUPABASE_TOKEN
+if (-not $token) { $token = Read-Secret 'Cole o token pessoal do Supabase (campo oculto)' }
 # Remove espacos, quebras de linha e qualquer caractere invisivel colado junto
 $token = ($token -replace '[^\x21-\x7E]', '')
+# Opcao 2: se o campo oculto nao recebeu a colagem, pede de novo num campo VISIVEL
+if ($token.Length -lt 20) {
+  Write-Host 'O campo oculto nao recebeu o token inteiro. Cole de novo abaixo (desta vez vai aparecer na tela).' -ForegroundColor Yellow
+  $token = (Read-Host 'Token') -replace '[^\x21-\x7E]', ''
+}
 if (-not $token.StartsWith('sbp_')) { throw 'Token invalido: ele deve comecar com sbp_ . Gere outro e cole de novo.' }
 $h = @{ Authorization = "Bearer $token" }
 
