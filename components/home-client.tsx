@@ -11,6 +11,8 @@ import { SignatureScreen } from '@/components/signature-screen';
 import { FinalizeScreen } from '@/components/finalize-screen';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { LogoutButton } from '@/components/logout-button';
+import { SyncStatus } from '@/components/sync-status';
 
 type Step = 'select' | 'review' | 'signature' | 'finalize';
 
@@ -73,9 +75,12 @@ export function HomeClient({ userName }: { userName: string }) {
                 <History className="w-4 h-4" />
               </Button>
             </Link>
+            <LogoutButton className="text-xs text-muted-foreground underline px-2" />
           </div>
         </div>
       </header>
+
+      <SyncStatus />
 
       {/* Content */}
       <main className="max-w-lg mx-auto px-4 py-6 safe-bottom">

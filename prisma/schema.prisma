@@ -41,6 +41,9 @@ model ServiceOrder {
 
   selectedServices  String   @db.Text // JSON em texto
   observacoes       String?  @db.Text
+  detalhesSistema   String?  @db.Text
+  contrato          String?  @db.Text
+  pagamento         String?  @db.Text
 
   dataAtendimento   String?
   horaEntrada       String?

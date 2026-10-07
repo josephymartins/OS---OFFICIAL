@@ -14,7 +14,7 @@
  *    e falham silenciosamente quando offline (não bloqueiam o app).
  */
 
-const VERSION = 'v1';
+const VERSION = 'v2';
 const STATIC_CACHE = `autocom-static-${VERSION}`;
 const RUNTIME_CACHE = `autocom-runtime-${VERSION}`;
 
@@ -130,6 +130,9 @@ self.addEventListener('fetch', (event) => {
 
   // Cross-origin: deixa a rede resolver (falha silenciosa quando offline).
   if (url.origin !== self.location.origin) return;
+
+  // Dados do usuário (API): nunca vão para o cache, sempre pela rede.
+  if (url.pathname.startsWith('/api/')) return;
 
   if (isStaticAsset(url)) {
     event.respondWith(cacheFirst(request));

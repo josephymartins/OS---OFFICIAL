@@ -23,6 +23,9 @@ export interface CreateOrderInput {
   problemaInformado?: string | null;
   selectedServices?: string;
   observacoes?: string | null;
+  detalhesSistema?: string | null;
+  contrato?: string | null;
+  pagamento?: string | null;
   dataAtendimento?: string | null;
   horaEntrada?: string | null;
   horaSaida?: string | null;
