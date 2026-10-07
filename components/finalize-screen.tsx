@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { extractPdfData } from '@/lib/pdf-parser';
 import { generateAndGetPdf } from '@/lib/pdf-generator';
-import { createOrder } from '@/lib/offline/orders';
+import { saveOrderWithQueue } from '@/lib/offline/queue';
 
 interface FinalizeScreenProps {
   selectedServices: string[];
@@ -77,10 +77,10 @@ export function FinalizeScreen({
     }
   };
 
-  // Save order + generated PDF locally in IndexedDB (works 100% offline)
+  // Salva a OS na nuvem; sem internet, guarda no aparelho e envia quando o sinal voltar
   const saveOrderToDb = async (blob: Blob) => {
     try {
-      await createOrder({
+      const result = await saveOrderWithQueue({
         clientName: extractedData?.nome_cliente ?? '',
         clientCpf: extractedData?.cpf_cliente ?? '',
         clientFantasia: extractedData?.fantasia ?? '',
@@ -94,6 +94,9 @@ export function FinalizeScreen({
         equipamento: extractedData?.equipamento ?? '',
         tecnico: extractedData?.tecnico ?? responsavel ?? '',
         problemaInformado: extractedData?.problema_informado ?? '',
+        detalhesSistema: extractedData?.detalhes_sistema ?? '',
+        contrato: extractedData?.contrato ?? '',
+        pagamento: extractedData?.pagamento ?? '',
         dataAtendimento,
         horaEntrada,
         horaSaida,
@@ -104,8 +107,15 @@ export function FinalizeScreen({
         status: 'finalizado',
         pdfBlob: blob,
       });
+      if (result.queued) {
+        toast.warning(
+          'Sem internet: a OS foi guardada no aparelho e será enviada quando o sinal voltar.',
+          { duration: 8000 }
+        );
+      }
     } catch (err) {
-      console.error('Erro ao salvar ordem localmente:', err);
+      console.error('Erro ao guardar a ordem:', err);
+      toast.error('Não foi possível guardar a OS. Baixe o PDF e tente salvar de novo.');
     }
   };
 
@@ -280,7 +290,7 @@ export function FinalizeScreen({
 
         <div className="bg-card rounded-xl p-4 shadow-sm">
           <Label className="mb-2 block">PDF do Cliente (opcional)</Label>
-          <p className="text-xs text-muted-foreground mb-3">Envie o PDF da O.S. para extrair dados do cliente automaticamente</p>
+          <p className="text-xs text-muted-foreground mb-3">Envie o PDF da O.S. para extrair dados do cliente automaticamente. Sem o PDF, você pode anexá-lo depois: no Histórico, toque em Editar.</p>
           <input
             ref={fileInputRef}
             type="file"
@@ -332,5 +342,3 @@ export function FinalizeScreen({
     </div>
   );
 }
-
-
