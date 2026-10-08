@@ -41,6 +41,37 @@ export const authOptions: NextAuthOptions = {
   },
 };
 
+/**
+ * Administradores: role = 'admin' no banco OU e-mail listado em ADMIN_EMAILS
+ * (variável de ambiente na Vercel, separada por vírgula).
+ */
+export function isAdminUser(u: { email: string; role?: string | null }): boolean {
+  const list = (process.env.ADMIN_EMAILS ?? '')
+    .split(/[,;\s]+/)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  return u.role === 'admin' || list.includes((u.email ?? '').toLowerCase());
+}
+
+export interface CurrentUser {
+  id: string;
+  name: string | null;
+  email: string;
+  isAdmin: boolean;
+}
+
+/** Usuário logado com a flag de administrador (ou null). */
+export async function getCurrentUser(): Promise<CurrentUser | null> {
+  const id = await requireUserId();
+  if (!id) return null;
+  const u = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true, name: true, email: true, role: true },
+  });
+  if (!u) return null;
+  return { id: u.id, name: u.name, email: u.email, isAdmin: isAdminUser(u) };
+}
+
 /** Retorna o id do usuário logado, ou null se não houver sessão. */
 export async function requireUserId(): Promise<string | null> {
   const session = await getServerSession(authOptions);

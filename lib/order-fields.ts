@@ -22,6 +22,7 @@ export const ORDER_FIELDS = [
   'backupNuvem',
   'backupEmail',
   'backupSenha',
+  'pdfFileName',
   'dataAtendimento',
   'horaEntrada',
   'horaSaida',
@@ -44,9 +45,11 @@ export function pickOrderFields(body: Record<string, any>) {
 
 /** Converte o registro do banco para o formato OfflineOrder usado pelo app. */
 export function serializeOrder(order: any) {
-  const { userId, pdf, createdAt, updatedAt, ...rest } = order;
+  const { userId, pdf, user, createdAt, updatedAt, ...rest } = order;
   return {
     ...rest,
+    ownerId: userId,
+    ownerName: user ? user.name || user.email : undefined,
     hasPdf: !!pdf,
     createdAt: createdAt.toISOString(),
     updatedAt: updatedAt.toISOString(),
@@ -54,3 +57,9 @@ export function serializeOrder(order: any) {
 }
 
 export const withPdfFlag = { pdf: { select: { orderId: true } } } as const;
+
+/** Igual a withPdfFlag, trazendo também o nome do técnico (visão do admin). */
+export const withPdfAndOwner = {
+  pdf: { select: { orderId: true } },
+  user: { select: { name: true, email: true } },
+} as const;
