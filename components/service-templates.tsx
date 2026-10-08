@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getSetting, setSetting } from '@/lib/offline/settings';
+import { readCache, writeCache } from '@/lib/local-cache';
 
 export interface ServiceTemplate {
   nome: string;
@@ -29,8 +30,13 @@ export function ServiceTemplates({ selectedServices, onApply }: Props) {
 
   useEffect(() => {
     getSetting<ServiceTemplate[]>(KEY)
-      .then((v) => setTemplates(Array.isArray(v) ? v : []))
-      .catch(() => setTemplates([]))
+      .then((v) => {
+        const list = Array.isArray(v) ? v : [];
+        setTemplates(list);
+        writeCache(KEY, list);
+      })
+      // sem internet: usa a cópia guardada no aparelho
+      .catch(() => setTemplates(readCache<ServiceTemplate[]>(KEY) ?? []))
       .finally(() => setLoaded(true));
   }, []);
 
@@ -39,6 +45,7 @@ export function ServiceTemplates({ selectedServices, onApply }: Props) {
     try {
       await setSetting(KEY, next);
       setTemplates(next);
+      writeCache(KEY, next);
       return true;
     } catch {
       toast.error('Não foi possível salvar o modelo. Verifique a internet.');
