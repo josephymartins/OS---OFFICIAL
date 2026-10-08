@@ -547,13 +547,27 @@ export async function generatePdfLocally(data: PdfGenerationData): Promise<Blob>
   return doc.output('blob');
 }
 
+/**
+ * Nome do arquivo do PDF assinado: NOME_ASSINADO.pdf
+ * (NOME = nome do PDF do cliente anexado, ou o nome do cliente).
+ */
+export function signedPdfFileName(name?: string | null): string {
+  let base = (name ?? '').replace(/\.pdf$/i, '').normalize('NFC');
+  base = base
+    .replace(/[\\/:*?"<>|]+/g, ' ') // caracteres proibidos no Windows/iPhone
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .replace(/_?ASSINADO$/i, ''); // evita _ASSINADO_ASSINADO
+  if (!base) base = 'OS';
+  return `${base.slice(0, 80)}_ASSINADO.pdf`;
+}
+
 export async function generateAndGetPdf(
   data: PdfGenerationData
 ): Promise<{ blob: Blob; fileName: string }> {
   const blob = await generatePdfLocally(data);
   const cn = data.extractedData?.nome_cliente ?? '';
-  const base = data.uploadedFileName
-    ? data.uploadedFileName.replace(/\.pdf$/i, '')
-    : 'OS_' + (cn || 'cliente');
-  return { blob, fileName: base + '.pdf' };
+  return { blob, fileName: signedPdfFileName(data.uploadedFileName || cn || 'cliente') };
 }
