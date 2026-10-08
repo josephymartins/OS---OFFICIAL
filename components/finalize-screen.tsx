@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { extractPdfData } from '@/lib/pdf-parser';
-import { generateAndGetPdf } from '@/lib/pdf-generator';
+import { generateAndGetPdf, signedPdfFileName } from '@/lib/pdf-generator';
 import { saveOrderWithQueue } from '@/lib/offline/queue';
 import { EMPTY_BACKUP, backupToFields, type BackupInfo } from '@/lib/backup-info';
 
@@ -165,7 +165,7 @@ export function FinalizeScreen({
 
   const getFileName = () => {
     if (finalFileName) return finalFileName;
-    return `OS_${extractedData?.nome_cliente ?? 'cliente'}_${dataAtendimento?.replace?.(/\//g, '-') ?? 'data'}.pdf`;
+    return signedPdfFileName(pdfFile?.name || extractedData?.nome_cliente || 'cliente');
   };
 
   const handleDownload = () => {
