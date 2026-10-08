@@ -25,6 +25,10 @@ export interface OfflineOrder {
   detalhesSistema?: string | null;
   contrato?: string | null;
   pagamento?: string | null;
+  backupMidiaExterna?: boolean;
+  backupNuvem?: boolean;
+  backupEmail?: string | null;
+  backupSenha?: string | null;
   dataAtendimento?: string | null;
   horaEntrada?: string | null;
   horaSaida?: string | null;
