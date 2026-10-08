@@ -18,6 +18,10 @@ export const ORDER_FIELDS = [
   'detalhesSistema',
   'contrato',
   'pagamento',
+  'backupMidiaExterna',
+  'backupNuvem',
+  'backupEmail',
+  'backupSenha',
   'dataAtendimento',
   'horaEntrada',
   'horaSaida',
@@ -33,6 +37,8 @@ export function pickOrderFields(body: Record<string, any>) {
     if (body[key] !== undefined) data[key] = body[key];
   }
   if (data.archived !== undefined) data.archived = !!data.archived;
+  if (data.backupMidiaExterna !== undefined) data.backupMidiaExterna = !!data.backupMidiaExterna;
+  if (data.backupNuvem !== undefined) data.backupNuvem = !!data.backupNuvem;
   return data;
 }
 

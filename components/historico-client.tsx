@@ -20,6 +20,7 @@ import Link from 'next/link';
 import { listOrders, countServices, deleteOrder, setArchived } from '@/lib/offline/orders';
 import { getPdfObjectUrl } from '@/lib/offline/files';
 import { exportAllData, exportSingleOrder, importData } from '@/lib/offline/backup';
+import { signedPdfFileName } from '@/lib/pdf-generator';
 
 interface OrderSummary {
   id: string;
@@ -110,7 +111,7 @@ export function HistoricoClient() {
       if (url) {
         const a = document.createElement('a');
         a.href = url;
-        a.download = `OS_${sanitize(clientName)}.pdf`;
+        a.download = signedPdfFileName(clientName || 'cliente');
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

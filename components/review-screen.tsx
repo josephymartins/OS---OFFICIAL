@@ -1,17 +1,19 @@
 'use client';
 
-import { PenLine, ArrowLeft, CheckCircle2, MessageSquare } from 'lucide-react';
+import { PenLine, ArrowLeft, CheckCircle2, MessageSquare, HardDrive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { serviceCategories } from '@/lib/services-config';
+import { hasBackup, type BackupInfo } from '@/lib/backup-info';
 
 interface ReviewScreenProps {
   selectedServices: string[];
   observacoes: string;
+  backup?: BackupInfo;
   onSign: () => void;
   onBack: () => void;
 }
 
-export function ReviewScreen({ selectedServices, observacoes, onSign, onBack }: ReviewScreenProps) {
+export function ReviewScreen({ selectedServices, observacoes, backup, onSign, onBack }: ReviewScreenProps) {
   // Group selected services by category
   const groupedServices = (serviceCategories ?? []).map((cat: any) => ({
     label: cat?.label ?? '',
@@ -47,6 +49,29 @@ export function ReviewScreen({ selectedServices, observacoes, onSign, onBack }: 
             </ul>
           </div>
         ))}
+
+        {backup && hasBackup(backup) && (
+          <div className="bg-card rounded-xl p-4 shadow-sm">
+            <h3 className="font-semibold text-sm text-primary mb-3 flex items-center gap-2">
+              <HardDrive className="w-4 h-4" />
+              Backup
+            </h3>
+            <ul className="space-y-2 text-sm text-foreground">
+              {backup.midiaExterna && (
+                <li className="flex items-start gap-2"><span className="text-primary mt-0.5">•</span>Backup em mídia externa</li>
+              )}
+              {backup.nuvem && (
+                <li className="flex items-start gap-2"><span className="text-primary mt-0.5">•</span>Backup em nuvem</li>
+              )}
+            </ul>
+            {backup.nuvem && (
+              <div className="mt-3 text-sm space-y-1">
+                <p><span className="text-muted-foreground">E-mail do drive:</span> {backup.email}</p>
+                <p><span className="text-muted-foreground">Senha do drive:</span> {backup.senha}</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {observacoes && (
           <div className="bg-card rounded-xl p-4 shadow-sm">

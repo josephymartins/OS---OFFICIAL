@@ -12,6 +12,8 @@ import { getOrder, updateOrder } from '@/lib/offline/orders';
 import { savePdf } from '@/lib/offline/files';
 import { generateAndGetPdf } from '@/lib/pdf-generator';
 import { extractPdfData } from '@/lib/pdf-parser';
+import { BackupFields } from '@/components/backup-fields';
+import { EMPTY_BACKUP, backupError, backupFromOrder, backupToFields, type BackupInfo } from '@/lib/backup-info';
 
 type Form = {
   clientName: string;
@@ -96,6 +98,7 @@ export function EditarClient({ id }: { id: string }) {
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [hadPdf, setHadPdf] = useState(false);
+  const [backup, setBackup] = useState<BackupInfo>(EMPTY_BACKUP);
 
   const set =
     (key: keyof Form) =>
@@ -135,6 +138,7 @@ export function EditarClient({ id }: { id: string }) {
         });
         setSignatureData(order.signatureData ?? null);
         setHadPdf(!!order.hasPdf);
+        setBackup(backupFromOrder(order));
         try {
           setSelectedServices(JSON.parse(order.selectedServices ?? '[]'));
         } catch {
@@ -230,6 +234,7 @@ export function EditarClient({ id }: { id: string }) {
         pagamento: form.pagamento,
         tecnico: form.tecnico || form.responsavel,
       },
+      backup,
     });
 
   const handleDownload = async () => {
@@ -257,6 +262,11 @@ export function EditarClient({ id }: { id: string }) {
       toast.error('Informe o responsável');
       return;
     }
+    const bErr = backupError(backup);
+    if (bErr) {
+      toast.error(bErr);
+      return;
+    }
     setSaving(true);
     try {
       const patch: any = {
@@ -282,6 +292,7 @@ export function EditarClient({ id }: { id: string }) {
         horaSaida: form.horaSaida || null,
         observacoes: form.observacoes || null,
         selectedServices: JSON.stringify(selectedServices ?? []),
+        ...backupToFields(backup),
       };
 
       // Regenera o PDF para refletir as alterações
@@ -417,6 +428,9 @@ export function EditarClient({ id }: { id: string }) {
         <div>
           <Label className="mb-2 block">Serviços realizados</Label>
           <ServiceSelector selectedServices={selectedServices} onToggle={handleToggle} />
+          <div className="mt-3">
+            <BackupFields value={backup} onChange={setBackup} />
+          </div>
         </div>
 
         <div className="space-y-2">

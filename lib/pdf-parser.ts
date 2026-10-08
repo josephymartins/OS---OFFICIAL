@@ -111,6 +111,8 @@ export function parseOsData(text: string): ExtractedPdfData {
       /^Data Atendimento:/i, /^Entrada\/Saída:/i, /^Hora entrada/i,
       /^Responsável:/i, /^Final:$/i, /^Valor do servico:/i, /^LEVAR:/i,
       /^CLIENTE:/i, /^AUTOCOM/i, /^REFERENTE AOS SISTEMAS:?/i,
+      // aviso padrão logo após "Técnico:" (evita usá-lo como nome do técnico)
+      /^DEFEITOS OCULTOS/i, /^\*\*\*EQUIPAMENTOS/i, /^ORDEM DE SERVIÇO$/i,
     ];
     const isLabel = (tk: string) => LABELS.some((r) => r.test((tk || '').trim()));
     const isPhone = (tk: string) => /^\(?\d{2}\)?\s?9?\d{4}[-\s]?\d{4}$/.test((tk || '').trim());
