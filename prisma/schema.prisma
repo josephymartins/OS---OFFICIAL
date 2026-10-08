@@ -51,6 +51,9 @@ model ServiceOrder {
   backupEmail        String?
   backupSenha        String?
 
+  // Nome do PDF do cliente anexado (para baixar como NOME_ASSINADO.pdf)
+  pdfFileName        String?
+
   dataAtendimento   String?
   horaEntrada       String?
   horaSaida         String?

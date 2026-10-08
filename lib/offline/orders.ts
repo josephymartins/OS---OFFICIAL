@@ -30,6 +30,7 @@ export interface CreateOrderInput {
   backupNuvem?: boolean;
   backupEmail?: string | null;
   backupSenha?: string | null;
+  pdfFileName?: string | null;
   dataAtendimento?: string | null;
   horaEntrada?: string | null;
   horaSaida?: string | null;
@@ -57,8 +58,11 @@ export async function createOrder(input: CreateOrderInput): Promise<OfflineOrder
 }
 
 /** Lista as ordens do usuário (mais recentes primeiro). */
-export async function listOrders(limit = 200): Promise<OfflineOrder[]> {
-  const res = await api(`/api/orders?limit=${limit}`);
+export async function listOrders(
+  limit = 200,
+  opts?: { all?: boolean }
+): Promise<OfflineOrder[]> {
+  const res = await api(`/api/orders?limit=${limit}${opts?.all ? '&scope=all' : ''}`);
   return readJson<OfflineOrder[]>(res, 'Não foi possível carregar as ordens');
 }
 

@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { serviceCategories } from '@/lib/services-config';
-import { ChevronDown, Settings, FileText, BarChart3, CircleDot, UtensilsCrossed, Check } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { serviceCategories, CUSTOM_SERVICE_PREFIX, isCustomService, serviceLabel } from '@/lib/services-config';
+import { ChevronDown, Settings, FileText, BarChart3, CircleDot, UtensilsCrossed, Check, Plus, PencilLine } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const iconMap: Record<string, any> = {
@@ -20,6 +22,16 @@ interface ServiceSelectorProps {
 
 export function ServiceSelector({ selectedServices, onToggle }: ServiceSelectorProps) {
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [customText, setCustomText] = useState('');
+  const customItems = (selectedServices ?? []).filter(isCustomService);
+
+  const addCustom = () => {
+    const text = customText.trim().replace(/\s+/g, ' ');
+    if (!text) return;
+    const key = CUSTOM_SERVICE_PREFIX + text;
+    if (!(selectedServices ?? []).includes(key)) onToggle?.(key);
+    setCustomText('');
+  };
 
   return (
     <div className="space-y-3">
@@ -94,6 +106,55 @@ export function ServiceSelector({ selectedServices, onToggle }: ServiceSelectorP
           </div>
         );
       })}
+
+      {/* Serviço não cadastrado: digita e adiciona à OS */}
+      <div className="rounded-xl overflow-hidden shadow-sm">
+        <div className="w-full flex items-center justify-between bg-primary text-white px-4 py-3.5">
+          <div className="flex items-center gap-3">
+            <PencilLine className="w-5 h-5" />
+            <span className="font-semibold text-sm">Outros serviços</span>
+          </div>
+          {customItems.length > 0 && (
+            <span className="bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+              {customItems.length}
+            </span>
+          )}
+        </div>
+        <div className="bg-card border border-t-0 border-border rounded-b-xl">
+          {customItems.map((key) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onToggle?.(key)}
+              title="Toque para remover"
+              className="w-full flex items-center gap-3 px-4 py-3 text-left border-b border-border/50 active:bg-muted/50 transition-colors"
+            >
+              <div className="w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 bg-primary border-primary">
+                <Check className="w-3 h-3 text-white" />
+              </div>
+              <span className="text-sm text-foreground">{serviceLabel(key)}</span>
+            </button>
+          ))}
+          <div className="flex items-center gap-2 px-3 py-3">
+            <Input
+              value={customText}
+              onChange={(e) => setCustomText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addCustom();
+                }
+              }}
+              placeholder="Serviço não cadastrado..."
+              className="rounded-xl"
+              maxLength={160}
+            />
+            <Button type="button" onClick={addCustom} disabled={!customText.trim()} className="rounded-xl flex-shrink-0">
+              <Plus className="w-4 h-4 mr-1" /> Adicionar
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

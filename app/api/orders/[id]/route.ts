@@ -1,19 +1,20 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireUserId } from '@/lib/auth';
-import { pickOrderFields, serializeOrder, withPdfFlag } from '@/lib/order-fields';
+import { getCurrentUser, requireUserId } from '@/lib/auth';
+import { pickOrderFields, serializeOrder, withPdfAndOwner, withPdfFlag } from '@/lib/order-fields';
 
 export const dynamic = 'force-dynamic';
 
 type Ctx = { params: { id: string } };
 
 export async function GET(_req: Request, { params }: Ctx) {
-  const userId = await requireUserId();
-  if (!userId) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+  const me = await getCurrentUser();
+  if (!me) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
 
+  // Administrador pode ver (não editar) a OS de qualquer técnico
   const order = await prisma.serviceOrder.findFirst({
-    where: { id: params.id, userId },
-    include: withPdfFlag,
+    where: me.isAdmin ? { id: params.id } : { id: params.id, userId: me.id },
+    include: withPdfAndOwner,
   });
   if (!order) return NextResponse.json({ error: 'Não encontrada' }, { status: 404 });
   return NextResponse.json(serializeOrder(order));
