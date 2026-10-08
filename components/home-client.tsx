@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { ChevronRight, History } from 'lucide-react';
+import { ChevronRight, History, Signature } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { LogoutButton } from '@/components/logout-button';
 import { SyncStatus } from '@/components/sync-status';
 import { BackupFields } from '@/components/backup-fields';
+import { ServiceTemplates } from '@/components/service-templates';
 import { EMPTY_BACKUP, backupError, hasBackup, type BackupInfo } from '@/lib/backup-info';
 
 type Step = 'select' | 'review' | 'signature' | 'finalize';
@@ -79,8 +80,13 @@ export function HomeClient({ userName }: { userName: string }) {
             <span className="font-display font-semibold text-xs">Uso Externo</span>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/historico">
-              <Button variant="ghost" size="icon-sm">
+            <Link href="/assinatura" title="Minha assinatura">
+              <Button variant="ghost" size="icon-sm" aria-label="Minha assinatura">
+                <Signature className="w-4 h-4" />
+              </Button>
+            </Link>
+            <Link href="/historico" title="Histórico">
+              <Button variant="ghost" size="icon-sm" aria-label="Histórico">
                 <History className="w-4 h-4" />
               </Button>
             </Link>
@@ -107,6 +113,7 @@ export function HomeClient({ userName }: { userName: string }) {
                 <h1 className="text-xl font-display font-bold tracking-tight">Ordem de Serviço - Uso Externo</h1>
                 <p className="text-sm text-muted-foreground mt-1">Selecione os serviços realizados</p>
               </div>
+              <ServiceTemplates selectedServices={selectedServices} onApply={setSelectedServices} />
               <ServiceSelector
                 selectedServices={selectedServices}
                 onToggle={(item: string) => {

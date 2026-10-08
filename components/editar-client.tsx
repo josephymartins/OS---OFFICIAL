@@ -13,6 +13,8 @@ import { savePdf } from '@/lib/offline/files';
 import { generateAndGetPdf } from '@/lib/pdf-generator';
 import { extractPdfData } from '@/lib/pdf-parser';
 import { BackupFields } from '@/components/backup-fields';
+import { getTechnicianSignature } from '@/lib/technician';
+import { getMe } from '@/lib/me';
 import { EMPTY_BACKUP, backupError, backupFromOrder, backupToFields, type BackupInfo } from '@/lib/backup-info';
 
 type Form = {
@@ -99,6 +101,9 @@ export function EditarClient({ id }: { id: string }) {
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [hadPdf, setHadPdf] = useState(false);
   const [backup, setBackup] = useState<BackupInfo>(EMPTY_BACKUP);
+  const [pdfFileName, setPdfFileName] = useState<string>('');
+  const [readOnly, setReadOnly] = useState(false);
+  const [ownerName, setOwnerName] = useState<string>('');
 
   const set =
     (key: keyof Form) =>
@@ -139,6 +144,13 @@ export function EditarClient({ id }: { id: string }) {
         setSignatureData(order.signatureData ?? null);
         setHadPdf(!!order.hasPdf);
         setBackup(backupFromOrder(order));
+        setPdfFileName(order.pdfFileName ?? '');
+        // Administrador vendo a OS de outro técnico: só leitura
+        const me = await getMe();
+        if (me && order.ownerId && order.ownerId !== me.id) {
+          setReadOnly(true);
+          setOwnerName(order.ownerName ?? '');
+        }
         try {
           setSelectedServices(JSON.parse(order.selectedServices ?? '[]'));
         } catch {
@@ -197,6 +209,7 @@ export function EditarClient({ id }: { id: string }) {
         pagamento: d.pagamento || f.pagamento,
       }));
       setAttachedName(file.name);
+      setPdfFileName(file.name);
       toast.success('Dados do cliente preenchidos! Confira e toque em Salvar Alterações.');
     } catch (err) {
       console.error('Extract error:', err);
@@ -207,8 +220,13 @@ export function EditarClient({ id }: { id: string }) {
   };
 
   // Gera o PDF a partir do que está na tela
-  const buildPdf = () =>
-    generateAndGetPdf({
+  const buildPdf = async () => {
+    // Na OS de outro técnico (admin), não usa a assinatura de quem está logado
+    const [techSig, me] = readOnly ? [null, null] : await Promise.all([getTechnicianSignature(), getMe()]);
+    return generateAndGetPdf({
+      technicianSignature: techSig,
+      technicianName: readOnly ? ownerName || null : me?.name ?? null,
+      uploadedFileName: pdfFileName || undefined,
       selectedServices: selectedServices ?? [],
       observacoes: form.observacoes ?? '',
       signatureData: signatureData ?? null,
@@ -236,6 +254,7 @@ export function EditarClient({ id }: { id: string }) {
       },
       backup,
     });
+  };
 
   const handleDownload = async () => {
     setDownloading(true);
@@ -293,6 +312,7 @@ export function EditarClient({ id }: { id: string }) {
         observacoes: form.observacoes || null,
         selectedServices: JSON.stringify(selectedServices ?? []),
         ...backupToFields(backup),
+        pdfFileName: pdfFileName || null,
       };
 
       // Regenera o PDF para refletir as alterações
@@ -444,6 +464,12 @@ export function EditarClient({ id }: { id: string }) {
           />
         </div>
 
+        {readOnly && (
+          <p className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
+            OS de {ownerName || 'outro técnico'}: você pode ver e baixar o PDF, mas só o técnico responsável pode alterar.
+          </p>
+        )}
+        {!readOnly && (
         <Button onClick={handleSave} disabled={saving} className="w-full h-12 text-base font-semibold rounded-xl">
           {saving ? (
             <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Salvando...</>
@@ -451,6 +477,7 @@ export function EditarClient({ id }: { id: string }) {
             <><Save className="w-5 h-5 mr-2" /> Salvar Alterações</>
           )}
         </Button>
+        )}
 
         <Button
           variant="outline"

@@ -8,9 +8,16 @@ import { toast } from 'sonner';
 interface SignatureScreenProps {
   onSave: (data: string) => void;
   onBack: () => void;
+  title?: string;
+  subtitle?: string;
 }
 
-export function SignatureScreen({ onSave, onBack }: SignatureScreenProps) {
+export function SignatureScreen({
+  onSave,
+  onBack,
+  title = 'Assinatura',
+  subtitle = 'Desenhe a assinatura do cliente',
+}: SignatureScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasDrawn, setHasDrawn] = useState(false);
@@ -284,7 +291,7 @@ export function SignatureScreen({ onSave, onBack }: SignatureScreenProps) {
             <Button variant="outline" size="icon-sm" onClick={onBack} className="rounded-lg h-8 w-8">
               <ArrowLeft className="w-4 h-4" />
             </Button>
-            <h2 className="text-sm font-display font-bold">Assinatura</h2>
+            <h2 className="text-sm font-display font-bold">{title}</h2>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -337,8 +344,8 @@ export function SignatureScreen({ onSave, onBack }: SignatureScreenProps) {
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
-          <h2 className="text-xl font-display font-bold tracking-tight">Assinatura</h2>
-          <p className="text-sm text-muted-foreground">Desenhe a assinatura do cliente</p>
+          <h2 className="text-xl font-display font-bold tracking-tight">{title}</h2>
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>
       </div>
 

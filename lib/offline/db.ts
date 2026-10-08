@@ -29,12 +29,15 @@ export interface OfflineOrder {
   backupNuvem?: boolean;
   backupEmail?: string | null;
   backupSenha?: string | null;
+  pdfFileName?: string | null;
   dataAtendimento?: string | null;
   horaEntrada?: string | null;
   horaSaida?: string | null;
   responsavel?: string | null;
   signatureData?: string | null;
   hasPdf?: boolean;
+  ownerId?: string;
+  ownerName?: string;
   archived?: boolean;
   status: string;
   createdAt: string; // ISO string

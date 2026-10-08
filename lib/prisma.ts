@@ -15,15 +15,17 @@ let ensured: Promise<void> | null = null;
 async function addMissingColumns(): Promise<void> {
   const rows = (await base.$queryRawUnsafe(
     `SELECT count(*) AS n FROM information_schema.columns
-      WHERE table_name = 'ServiceOrder' AND column_name = 'backupSenha'`
+      WHERE table_name = 'ServiceOrder'
+        AND column_name IN ('backupSenha', 'pdfFileName')`
   )) as Array<{ n: bigint | number }>;
-  if (Number(rows?.[0]?.n ?? 0) > 0) return;
+  if (Number(rows?.[0]?.n ?? 0) >= 2) return;
   await base.$executeRawUnsafe(
     `ALTER TABLE "ServiceOrder"
        ADD COLUMN IF NOT EXISTS "backupMidiaExterna" BOOLEAN NOT NULL DEFAULT false,
        ADD COLUMN IF NOT EXISTS "backupNuvem" BOOLEAN NOT NULL DEFAULT false,
        ADD COLUMN IF NOT EXISTS "backupEmail" TEXT,
-       ADD COLUMN IF NOT EXISTS "backupSenha" TEXT`
+       ADD COLUMN IF NOT EXISTS "backupSenha" TEXT,
+       ADD COLUMN IF NOT EXISTS "pdfFileName" TEXT`
   );
 }
 

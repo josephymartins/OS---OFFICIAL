@@ -23,6 +23,9 @@ export interface PdfGenerationData {
   extractedData: any;
   backup?: BackupInfo;
   uploadedFileName?: string;
+  /** Assinatura salva do técnico (data URL) e nome dele, para o lado da empresa. */
+  technicianSignature?: string | null;
+  technicianName?: string | null;
   /** Opcional: logo já preparado (data URL). Se ausente, carrega /logo-autocom.png. */
   logoDataUrl?: string | null;
 }
@@ -498,22 +501,30 @@ export async function generatePdfLocally(data: PdfGenerationData): Promise<Blob>
   const leftX = LM + 2;
   const sx = PW / 2 + 6;
 
-  if (signatureData) {
+  /** Desenha uma assinatura centralizada logo acima da linha. */
+  const drawSignature = async (dataUrl: string, x: number) => {
     try {
-      const img = new Image();
-      await new Promise<void>((resolve) => {
-        img.onload = () => resolve();
-        img.onerror = () => resolve();
-        img.src = signatureData;
-      });
-      const imgW = img.naturalWidth || 300;
-      const imgH = img.naturalHeight || 100;
+      let imgW = 300;
+      let imgH = 100;
+      if (typeof Image !== 'undefined') {
+        const img = new Image();
+        await new Promise<void>((resolve) => {
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+          img.src = dataUrl;
+        });
+        imgW = img.naturalWidth || imgW;
+        imgH = img.naturalHeight || imgH;
+      }
       const ratio = Math.min(sw / imgW, 20 / imgH);
       const drawW = imgW * ratio;
       const drawH = imgH * ratio;
-      doc.addImage(signatureData, 'JPEG', sx + (sw - drawW) / 2, lineY - drawH - 1, drawW, drawH);
+      const fmt = /^data:image\/png/i.test(dataUrl) ? 'PNG' : 'JPEG';
+      doc.addImage(dataUrl, fmt, x + (sw - drawW) / 2, lineY - drawH - 1, drawW, drawH);
     } catch { /* ignora erro de imagem */ }
-  }
+  };
+  if (data.technicianSignature) await drawSignature(data.technicianSignature, leftX);
+  if (signatureData) await drawSignature(signatureData, sx);
 
   stroke(doc, INK);
   doc.setLineWidth(0.3);
@@ -527,7 +538,12 @@ export async function generatePdfLocally(data: PdfGenerationData): Promise<Blob>
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
   ink(doc, MUTED);
-  doc.text('Técnico / Empresa', leftX + sw / 2, lineY + 7.5, { align: 'center' });
+  doc.text(
+    data.technicianName ? `${data.technicianName} — Técnico` : 'Técnico / Empresa',
+    leftX + sw / 2,
+    lineY + 7.5,
+    { align: 'center' }
+  );
   doc.text('Cliente', sx + sw / 2, lineY + 7.5, { align: 'center' });
 
   // === RODAPÉ EM TODAS AS PÁGINAS ===

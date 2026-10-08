@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   ArrowLeft, ClipboardList, Calendar, User, Hash, Loader2, FileDown,
   Search, MoreVertical, Pencil, Trash2, Download, Upload, Archive, ArchiveRestore,
+  FileSpreadsheet, MessageCircle, Users, Eye,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -18,7 +19,12 @@ import {
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { listOrders, countServices, deleteOrder, setArchived } from '@/lib/offline/orders';
-import { getPdfObjectUrl } from '@/lib/offline/files';
+import { getPdfBlob, getPdfObjectUrl } from '@/lib/offline/files';
+import type { OfflineOrder } from '@/lib/offline/db';
+import { getMe, type Me } from '@/lib/me';
+import { PERIODOS, formatRange, inRange, orderDate, periodRange, type Periodo } from '@/lib/periodo';
+import { buildOrdersXlsx } from '@/lib/report-xlsx';
+import { sharePdfViaWhatsApp, whatsappMessage } from '@/lib/share';
 import { exportAllData, exportSingleOrder, importData } from '@/lib/offline/backup';
 import { signedPdfFileName } from '@/lib/pdf-generator';
 
@@ -34,6 +40,10 @@ interface OrderSummary {
   createdAt: string;
   serviceCount: number;
   hasPdf: boolean;
+  ownerId?: string;
+  ownerName?: string;
+  pdfFileName?: string | null;
+  clientTelefone?: string | null;
 }
 
 function triggerDownload(blob: Blob, fileName: string) {
@@ -60,10 +70,25 @@ export function HistoricoClient() {
   const [busy, setBusy] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<OrderSummary | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
+  const [me, setMe] = useState<Me | null>(null);
+  const [scope, setScope] = useState<'mine' | 'all'>('mine');
+  const [techFilter, setTechFilter] = useState('');
+  const [periodo, setPeriodo] = useState<Periodo>('tudo');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [rawOrders, setRawOrders] = useState<OfflineOrder[]>([]);
+  const [exporting, setExporting] = useState(false);
+  const [preparingShareId, setPreparingShareId] = useState<string | null>(null);
+  const [shareTarget, setShareTarget] = useState<{
+    blob: Blob; fileName: string; message: string; phone?: string | null;
+  } | null>(null);
+
+  const isMine = (o: OrderSummary) => !me || !o.ownerId || o.ownerId === me.id;
 
   const loadOrders = async () => {
     try {
-      const local = await listOrders(1000);
+      const local = await listOrders(scope === 'all' ? 5000 : 1000, { all: scope === 'all' });
+      setRawOrders(local ?? []);
       const mapped: OrderSummary[] = (local ?? []).map((o) => ({
         id: o.id,
         clientName: o.clientName ?? null,
@@ -76,6 +101,10 @@ export function HistoricoClient() {
         createdAt: o.createdAt ?? '',
         serviceCount: countServices(o.selectedServices),
         hasPdf: !!o.hasPdf,
+        ownerId: o.ownerId,
+        ownerName: o.ownerName,
+        pdfFileName: o.pdfFileName ?? null,
+        clientTelefone: o.clientTelefone ?? null,
       }));
       setOrders(mapped);
     } catch (err: any) {
@@ -86,21 +115,36 @@ export function HistoricoClient() {
   };
 
   useEffect(() => {
-    loadOrders();
+    getMe().then(setMe);
   }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    setTechFilter('');
+    loadOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope]);
+
+  const range = useMemo(() => periodRange(periodo, from, to), [periodo, from, to]);
+  const techOptions = useMemo(
+    () => Array.from(new Set((orders ?? []).map((o) => o.ownerName).filter(Boolean) as string[])).sort(),
+    [orders]
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (orders ?? []).filter((o) => {
       if (o.archived && !showArchived) return false;
       if (!o.archived && showArchived) return false;
+      if (techFilter && (o.ownerName ?? '') !== techFilter) return false;
+      if (!inRange(orderDate(o), range)) return false;
       if (!q) return true;
       const hay = [
         o.clientName, o.clientFantasia, o.numeroOs, o.responsavel, o.dataAtendimento,
       ].filter(Boolean).join(' ').toLowerCase();
       return hay.includes(q);
     });
-  }, [orders, query, showArchived]);
+  }, [orders, query, showArchived, techFilter, range]);
 
   const archivedCount = useMemo(() => (orders ?? []).filter((o) => o.archived).length, [orders]);
 
@@ -125,6 +169,61 @@ export function HistoricoClient() {
     } finally {
       setDownloadingId(null);
     }
+  };
+
+  const handleExportExcel = async () => {
+    const ids = new Set(filtered.map((o) => o.id));
+    const list = rawOrders.filter((o) => ids.has(o.id));
+    if (list.length === 0) {
+      toast.error('Nenhuma OS no filtro atual');
+      return;
+    }
+    setExporting(true);
+    try {
+      const blob = await buildOrdersXlsx(list, {
+        periodo: formatRange(range),
+        geradoPor: me?.name || me?.email,
+      });
+      const stamp = new Date().toISOString().slice(0, 10);
+      triggerDownload(blob, `relatorio_os_${stamp}.xlsx`);
+      toast.success(`Relatório gerado com ${list.length} OS`);
+    } catch (err) {
+      console.error('Erro ao gerar relatório:', err);
+      toast.error('Erro ao gerar o relatório');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  // Passo 1: busca o PDF. Passo 2 (no diálogo): o toque em "Enviar" abre o compartilhar.
+  const handlePrepareWhatsApp = async (order: OrderSummary) => {
+    setPreparingShareId(order.id);
+    try {
+      const blob = await getPdfBlob(order.id);
+      if (!blob) {
+        toast.error('PDF não disponível para esta ordem');
+        return;
+      }
+      setShareTarget({
+        blob,
+        fileName: signedPdfFileName(order.pdfFileName || order.clientName || order.clientFantasia || 'cliente'),
+        message: whatsappMessage({ numeroOs: order.numeroOs, clientName: order.clientName ?? order.clientFantasia }),
+        phone: order.clientTelefone,
+      });
+    } catch (err) {
+      console.error('Erro ao carregar PDF:', err);
+      toast.error('Erro ao carregar o PDF');
+    } finally {
+      setPreparingShareId(null);
+    }
+  };
+
+  const handleSendWhatsApp = async () => {
+    const t = shareTarget;
+    if (!t) return;
+    const r = await sharePdfViaWhatsApp(t.blob, t.fileName, t.message, t.phone);
+    setShareTarget(null);
+    if (r === 'fallback') toast.info('PDF baixado. Anexe o arquivo na conversa do WhatsApp que abriu.');
   };
 
   const handleExportOne = async (order: OrderSummary) => {
@@ -223,6 +322,60 @@ export function HistoricoClient() {
               className="rounded-xl pl-9"
             />
           </div>
+          {me?.isAdmin && (
+            <div className="flex rounded-xl bg-muted p-1 text-xs font-medium">
+              {(['mine', 'all'] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setScope(s)}
+                  className={`flex-1 rounded-lg py-1.5 transition-colors ${scope === s ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground'}`}
+                >
+                  {s === 'mine' ? 'Minhas OS' : 'Todos os técnicos'}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <select
+              value={periodo}
+              onChange={(e) => setPeriodo(e.target.value as Periodo)}
+              className="h-9 flex-1 rounded-lg border border-border bg-card px-2 text-xs"
+              aria-label="Período"
+            >
+              {PERIODOS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+            </select>
+            {scope === 'all' && (
+              <select
+                value={techFilter}
+                onChange={(e) => setTechFilter(e.target.value)}
+                className="h-9 flex-1 rounded-lg border border-border bg-card px-2 text-xs"
+                aria-label="Técnico"
+              >
+                <option value="">Todos os técnicos</option>
+                {techOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            )}
+          </div>
+          {periodo === 'personalizado' && (
+            <div className="flex items-center gap-2 text-xs">
+              <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="h-9 rounded-lg text-xs" aria-label="De" />
+              <span className="text-muted-foreground">até</span>
+              <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="h-9 rounded-lg text-xs" aria-label="Até" />
+            </div>
+          )}
+          <Button
+            size="sm"
+            className="w-full rounded-lg text-xs bg-[#1D6F42] hover:bg-[#185C37] text-white"
+            disabled={exporting || loading}
+            onClick={handleExportExcel}
+          >
+            {exporting ? (
+              <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Gerando relatório...</>
+            ) : (
+              <><FileSpreadsheet className="w-3.5 h-3.5 mr-1.5" /> Relatório Excel ({filtered.length} OS)</>
+            )}
+          </Button>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="rounded-lg text-xs flex-1" disabled={busy} onClick={handleExportAll}>
               <Download className="w-3.5 h-3.5 mr-1.5" /> Exportar backup
@@ -295,7 +448,22 @@ export function HistoricoClient() {
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuContent align="end" className="w-48">
+                        {order.hasPdf && (
+                          <DropdownMenuItem
+                            disabled={preparingShareId === order.id}
+                            onClick={() => handlePrepareWhatsApp(order)}
+                          >
+                            <MessageCircle className="w-4 h-4 mr-2" /> Enviar pelo WhatsApp
+                          </DropdownMenuItem>
+                        )}
+                        {!isMine(order) ? (
+                          <DropdownMenuItem asChild>
+                            <Link href={`/editar/${order.id}`}>
+                              <Eye className="w-4 h-4 mr-2" /> Ver detalhes
+                            </Link>
+                          </DropdownMenuItem>
+                        ) : (<>
                         <DropdownMenuItem asChild>
                           <Link href={`/editar/${order.id}`}>
                             <Pencil className="w-4 h-4 mr-2" /> Editar
@@ -318,11 +486,18 @@ export function HistoricoClient() {
                         >
                           <Trash2 className="w-4 h-4 mr-2" /> Excluir
                         </DropdownMenuItem>
+                        </>)}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
                 </div>
                 <div className="space-y-1 text-xs text-muted-foreground">
+                  {scope === 'all' && order?.ownerName && (
+                    <div className="flex items-center gap-1.5 font-medium text-primary">
+                      <Users className="w-3 h-3" />
+                      <span>Técnico: {order.ownerName}</span>
+                    </div>
+                  )}
                   {order?.numeroOs && (
                     <div className="flex items-center gap-1.5">
                       <Hash className="w-3 h-3" />
@@ -352,7 +527,7 @@ export function HistoricoClient() {
                     size="sm"
                     className="mt-3 w-full rounded-lg text-xs font-semibold h-9"
                     disabled={downloadingId === order.id}
-                    onClick={() => handleDownloadPdf(order.id, order.clientName ?? order.clientFantasia)}
+                    onClick={() => handleDownloadPdf(order.id, order.pdfFileName || order.clientName || order.clientFantasia)}
                   >
                     {downloadingId === order.id ? (
                       <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Carregando...</>
@@ -366,6 +541,23 @@ export function HistoricoClient() {
           </div>
         )}
       </main>
+
+      <AlertDialog open={!!shareTarget} onOpenChange={(open) => !open && setShareTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Enviar pelo WhatsApp</AlertDialogTitle>
+            <AlertDialogDescription>
+              O PDF {shareTarget?.fileName} está pronto. Toque em Enviar e escolha o WhatsApp.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-[#25D366] hover:bg-[#1EBE57] text-white" onClick={handleSendWhatsApp}>
+              Enviar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
