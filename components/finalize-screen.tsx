@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Upload, FileDown, Loader2, FileText, CheckCircle, Share2 } from 'lucide-react';
+import { ArrowLeft, Upload, FileDown, Loader2, FileText, CheckCircle, Share2, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +10,9 @@ import { extractPdfData } from '@/lib/pdf-parser';
 import { generateAndGetPdf, signedPdfFileName } from '@/lib/pdf-generator';
 import { saveOrderWithQueue } from '@/lib/offline/queue';
 import { EMPTY_BACKUP, backupToFields, type BackupInfo } from '@/lib/backup-info';
+import { getTechnicianSignature } from '@/lib/technician';
+import { getMe } from '@/lib/me';
+import { sharePdfViaWhatsApp, whatsappMessage } from '@/lib/share';
 
 interface FinalizeScreenProps {
   selectedServices: string[];
@@ -50,6 +53,8 @@ export function FinalizeScreen({
       `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`
     );
     setHoraEntrada(`${pad(now.getHours())}:${pad(now.getMinutes())}`);
+    // Saída = hora em que o cliente assinou (esta tela abre logo depois da assinatura)
+    setHoraSaida(`${pad(now.getHours())}:${pad(now.getMinutes())}`);
   }, []);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -108,6 +113,7 @@ export function FinalizeScreen({
         observacoes: observacoes ?? '',
         signatureData: signatureData ?? null,
         ...backupToFields(backup),
+        pdfFileName: pdfFile?.name ?? null,
         status: 'finalizado',
         pdfBlob: blob,
       });
@@ -133,7 +139,10 @@ export function FinalizeScreen({
 
     try {
       // Generate PDF entirely in the browser - no server, no API, no credits
+      const [techSig, me] = await Promise.all([getTechnicianSignature(), getMe()]);
       const { blob, fileName } = await generateAndGetPdf({
+        technicianSignature: techSig,
+        technicianName: me?.name ?? null,
         selectedServices: selectedServices ?? [],
         observacoes: observacoes ?? '',
         signatureData: signatureData ?? null,
@@ -178,6 +187,17 @@ export function FinalizeScreen({
     document.body.removeChild(a);
   };
 
+  const handleWhatsApp = async () => {
+    if (!pdfBlob) return;
+    const r = await sharePdfViaWhatsApp(
+      pdfBlob,
+      getFileName(),
+      whatsappMessage({ numeroOs: extractedData?.numero_os, clientName: extractedData?.nome_cliente }),
+      extractedData?.telefone_cliente
+    );
+    if (r === 'fallback') toast.info('PDF baixado. Anexe o arquivo na conversa do WhatsApp que abriu.');
+  };
+
   const handleShareGoogleDrive = async () => {
     const blob = pdfBlob;
     if (!blob) return;
@@ -217,6 +237,13 @@ export function FinalizeScreen({
           <Button onClick={handleDownload} className="w-full h-12 rounded-xl font-semibold">
             <FileDown className="w-5 h-5 mr-2" />
             Baixar PDF
+          </Button>
+          <Button
+            onClick={handleWhatsApp}
+            className="w-full h-12 rounded-xl font-semibold bg-[#25D366] hover:bg-[#1EBE57] text-white"
+          >
+            <MessageCircle className="w-5 h-5 mr-2" />
+            Enviar pelo WhatsApp
           </Button>
           <Button
             onClick={handleShareGoogleDrive}

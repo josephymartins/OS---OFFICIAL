@@ -99,3 +99,16 @@ export const serviceCategories: ServiceCategory[] = [
     ],
   },
 ];
+
+/** Serviços digitados na hora (não cadastrados) ficam como "outros::<texto>". */
+export const CUSTOM_SERVICE_PREFIX = 'outros::';
+
+export function isCustomService(key: string): boolean {
+  return key.startsWith(CUSTOM_SERVICE_PREFIX);
+}
+
+/** Texto do serviço sem o prefixo da categoria. */
+export function serviceLabel(key: string): string {
+  const p = key.split('::');
+  return p.length > 1 ? p.slice(1).join('::') : key;
+}

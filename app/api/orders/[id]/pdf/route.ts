@@ -1,17 +1,17 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireUserId } from '@/lib/auth';
+import { getCurrentUser, requireUserId } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 type Ctx = { params: { id: string } };
 
 export async function GET(_req: Request, { params }: Ctx) {
-  const userId = await requireUserId();
-  if (!userId) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+  const me = await getCurrentUser();
+  if (!me) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
 
   const row = await prisma.orderPdf.findFirst({
-    where: { orderId: params.id, order: { userId } },
+    where: me.isAdmin ? { orderId: params.id } : { orderId: params.id, order: { userId: me.id } },
   });
   if (!row) return NextResponse.json({ error: 'PDF não encontrado' }, { status: 404 });
 

@@ -2,7 +2,7 @@
 
 import { PenLine, ArrowLeft, CheckCircle2, MessageSquare, HardDrive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { serviceCategories } from '@/lib/services-config';
+import { serviceCategories, isCustomService, serviceLabel } from '@/lib/services-config';
 import { hasBackup, type BackupInfo } from '@/lib/backup-info';
 
 interface ReviewScreenProps {
@@ -19,6 +19,8 @@ export function ReviewScreen({ selectedServices, observacoes, backup, onSign, on
     label: cat?.label ?? '',
     items: (cat?.items ?? []).filter((item: string) => (selectedServices ?? []).includes(`${cat?.id}::${item}`)),
   })).filter((group: any) => (group?.items?.length ?? 0) > 0);
+  const customItems = (selectedServices ?? []).filter(isCustomService).map(serviceLabel);
+  if (customItems.length > 0) groupedServices.push({ label: 'Outros serviços', items: customItems });
 
   return (
     <div>
