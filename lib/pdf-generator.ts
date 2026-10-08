@@ -5,6 +5,7 @@
  */
 
 import jsPDF from 'jspdf';
+import { hasBackup, type BackupInfo } from '@/lib/backup-info';
 
 export interface PdfGenerationData {
   selectedServices: string[];
@@ -15,6 +16,7 @@ export interface PdfGenerationData {
   horaEntrada: string;
   horaSaida: string;
   extractedData: any;
+  backup?: BackupInfo;
   uploadedFileName?: string;
 }
 
@@ -70,6 +72,58 @@ function tblRow(doc: jsPDF, lbl: string, val: string, y: number): number {
   return y + rh;
 }
 
+/** Caixinha de marcação; y é a linha de base do texto ao lado. */
+function checkBox(doc: jsPDF, x: number, y: number, checked: boolean) {
+  const s = 2.6;
+  const top = y - 2.2;
+  const lw = doc.getLineWidth();
+  doc.setDrawColor(60, 60, 60);
+  doc.setLineWidth(0.25);
+  doc.rect(x, top, s, s, 'S');
+  if (checked) {
+    doc.setLineWidth(0.45);
+    doc.line(x + 0.5, top + 0.5, x + s - 0.5, top + s - 0.5);
+    doc.line(x + s - 0.5, top + 0.5, x + 0.5, top + s - 0.5);
+  }
+  doc.setLineWidth(lw);
+}
+
+/** Linha "Backup: [ ] Mídia externa  [ ] Nuvem" + e-mail/senha do drive se nuvem. */
+function backupLine(doc: jsPDF, b: BackupInfo, y: number, tw: number): number {
+  y = np(doc, y, b.nuvem ? 10 : 6);
+  const x0 = LM + 3;
+  doc.setFontSize(7);
+  doc.setTextColor(20, 20, 20);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Backup:', x0, y);
+  let x = x0 + doc.getTextWidth('Backup:') + 3;
+  doc.setFont('helvetica', 'normal');
+  checkBox(doc, x, y, b.midiaExterna);
+  x += 4;
+  doc.text('Mídia externa', x, y);
+  x += doc.getTextWidth('Mídia externa') + 6;
+  checkBox(doc, x, y, b.nuvem);
+  x += 4;
+  doc.text('Nuvem', x, y);
+  y += 4;
+  if (b.nuvem) {
+    const parts: Array<[string, string]> = [
+      ['E-mail do drive:', b.email || ''],
+      ['Senha do drive:', b.senha || ''],
+    ];
+    for (const [lbl, val] of parts) {
+      y = np(doc, y, 4);
+      doc.setFont('helvetica', 'bold');
+      doc.text(lbl, x0, y);
+      const lx = x0 + doc.getTextWidth(lbl) + 1.5; // mede ainda em negrito
+      doc.setFont('helvetica', 'normal');
+      const lines = doc.splitTextToSize(val, tw - (lx - x0)) as string[];
+      for (const l of lines) { doc.text(l, lx, y); y += 3.5; }
+    }
+  }
+  return y;
+}
+
 function secHdr(doc: jsPDF, title: string, y: number): number {
   y = np(doc, y, 8);
   doc.setFillColor(230, 230, 230);
@@ -86,7 +140,7 @@ function secHdr(doc: jsPDF, title: string, y: number): number {
 
 export async function generatePdfLocally(data: PdfGenerationData): Promise<Blob> {
   const { selectedServices, observacoes, signatureData, responsavel,
-    dataAtendimento, horaEntrada, horaSaida, extractedData } = data;
+    dataAtendimento, horaEntrada, horaSaida, extractedData, backup } = data;
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const tw = CW - 10; // text width with safe inner padding for accented chars
@@ -203,7 +257,7 @@ export async function generatePdfLocally(data: PdfGenerationData): Promise<Blob>
     return p.length > 1 ? p.slice(1).join('::') : s;
   });
 
-  if (svcs.length > 0) {
+  if (svcs.length > 0 || hasBackup(backup)) {
     y = secHdr(doc, 'Serviço Executado', y);
     doc.setFontSize(7);
     doc.setTextColor(20, 20, 20);
@@ -227,7 +281,11 @@ export async function generatePdfLocally(data: PdfGenerationData): Promise<Blob>
       const ls = doc.splitTextToSize('• ' + s, colW) as string[];
       for (const l of ls) { doc.text(l, LM + CW / 2 + colIndent, y2); y2 += 3.5; }
     }
-    y = Math.max(y1, y2) + 3;
+    y = svcs.length > 0 ? Math.max(y1, y2) + 1.5 : sy;
+
+    // Marcação de backup (sempre mostra as duas opções)
+    y = backupLine(doc, backup ?? { midiaExterna: false, nuvem: false, email: '', senha: '' }, y, tw);
+    y += 1.5;
   }
 
   // === OBSERVATIONS ===

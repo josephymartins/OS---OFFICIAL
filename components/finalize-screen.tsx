@@ -9,11 +9,13 @@ import { toast } from 'sonner';
 import { extractPdfData } from '@/lib/pdf-parser';
 import { generateAndGetPdf } from '@/lib/pdf-generator';
 import { saveOrderWithQueue } from '@/lib/offline/queue';
+import { EMPTY_BACKUP, backupToFields, type BackupInfo } from '@/lib/backup-info';
 
 interface FinalizeScreenProps {
   selectedServices: string[];
   observacoes: string;
   signatureData: string | null;
+  backup?: BackupInfo;
   onBack: () => void;
   onReset: () => void;
 }
@@ -22,6 +24,7 @@ export function FinalizeScreen({
   selectedServices,
   observacoes,
   signatureData,
+  backup = EMPTY_BACKUP,
   onBack,
   onReset,
 }: FinalizeScreenProps) {
@@ -104,6 +107,7 @@ export function FinalizeScreen({
         selectedServices: JSON.stringify(selectedServices ?? []),
         observacoes: observacoes ?? '',
         signatureData: signatureData ?? null,
+        ...backupToFields(backup),
         status: 'finalizado',
         pdfBlob: blob,
       });
@@ -138,6 +142,7 @@ export function FinalizeScreen({
         horaEntrada,
         horaSaida,
         extractedData: extractedData ?? {},
+        backup,
         uploadedFileName: pdfFile?.name ?? undefined,
       });
 

@@ -45,6 +45,12 @@ model ServiceOrder {
   contrato          String?  @db.Text
   pagamento         String?  @db.Text
 
+  // Backup do banco de dados do cliente (marcação em "Serviço Executado")
+  backupMidiaExterna Boolean @default(false)
+  backupNuvem        Boolean @default(false)
+  backupEmail        String?
+  backupSenha        String?
+
   dataAtendimento   String?
   horaEntrada       String?
   horaSaida         String?
