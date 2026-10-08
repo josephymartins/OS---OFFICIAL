@@ -13,6 +13,8 @@ import { toast } from 'sonner';
 import Link from 'next/link';
 import { LogoutButton } from '@/components/logout-button';
 import { SyncStatus } from '@/components/sync-status';
+import { BackupFields } from '@/components/backup-fields';
+import { EMPTY_BACKUP, backupError, hasBackup, type BackupInfo } from '@/lib/backup-info';
 
 type Step = 'select' | 'review' | 'signature' | 'finalize';
 
@@ -21,14 +23,20 @@ export function HomeClient({ userName }: { userName: string }) {
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [observacoes, setObservacoes] = useState('');
   const [signatureData, setSignatureData] = useState<string | null>(null);
+  const [backup, setBackup] = useState<BackupInfo>(EMPTY_BACKUP);
 
   const handleViewReport = useCallback(() => {
-    if ((selectedServices?.length ?? 0) === 0) {
+    if ((selectedServices?.length ?? 0) === 0 && !hasBackup(backup)) {
       toast.error('Selecione pelo menos um serviço');
       return;
     }
+    const err = backupError(backup);
+    if (err) {
+      toast.error(err);
+      return;
+    }
     setStep('review');
-  }, [selectedServices]);
+  }, [selectedServices, backup]);
 
   const handleGoToSignature = useCallback(() => {
     setStep('signature');
@@ -50,6 +58,7 @@ export function HomeClient({ userName }: { userName: string }) {
     setSelectedServices([]);
     setObservacoes('');
     setSignatureData(null);
+    setBackup(EMPTY_BACKUP);
   }, []);
 
   const slideVariants = {
@@ -108,6 +117,9 @@ export function HomeClient({ userName }: { userName: string }) {
                   );
                 }}
               />
+              <div className="mt-3">
+                <BackupFields value={backup} onChange={setBackup} />
+              </div>
               <div className="mt-6">
                 <label className="text-sm font-medium text-foreground block mb-2">Observações Adicionais</label>
                 <textarea
@@ -141,6 +153,7 @@ export function HomeClient({ userName }: { userName: string }) {
               <ReviewScreen
                 selectedServices={selectedServices}
                 observacoes={observacoes}
+                backup={backup}
                 onSign={handleGoToSignature}
                 onBack={handleBack}
               />
@@ -176,6 +189,7 @@ export function HomeClient({ userName }: { userName: string }) {
                 selectedServices={selectedServices}
                 observacoes={observacoes}
                 signatureData={signatureData}
+                backup={backup}
                 onBack={handleBack}
                 onReset={handleReset}
               />
