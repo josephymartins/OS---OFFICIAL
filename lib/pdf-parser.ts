@@ -34,14 +34,24 @@ export interface ExtractedPdfData {
  */
 async function loadPdfJs() {
   if (pdfjsLib) return pdfjsLib;
+  // Use Function() to bypass webpack static analysis entirely
+  const dynamicImport = new Function('url', 'return import(url)');
   try {
-    // Use Function() to bypass webpack static analysis entirely
-    const dynamicImport = new Function('url', 'return import(url)');
     pdfjsLib = await dynamicImport('/pdf.min.mjs');
     pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
   } catch (err) {
-    console.error('Failed to load pdfjs-dist:', err);
-    throw new Error('Não foi possível carregar o leitor de PDF');
+    // O cache do aparelho pode ter guardado uma resposta errada:
+    // tenta de novo direto da rede (endereço diferente não usa o cache).
+    console.warn('pdf.js do cache falhou, tentando pela rede:', err);
+    try {
+      const bust = `?v=${Date.now()}`;
+      pdfjsLib = await dynamicImport('/pdf.min.mjs' + bust);
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs' + bust;
+    } catch (err2) {
+      pdfjsLib = null;
+      console.error('Failed to load pdfjs-dist:', err2);
+      throw new Error('Não foi possível carregar o leitor de PDF. Verifique a internet e tente de novo.');
+    }
   }
   return pdfjsLib;
 }

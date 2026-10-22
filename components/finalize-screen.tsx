@@ -79,7 +79,7 @@ export function FinalizeScreen({
       }
     } catch (err: any) {
       console.error('Extract error:', err);
-      toast.error('Erro ao extrair dados do PDF');
+      toast.error(err?.message ? `Erro ao extrair dados do PDF: ${err.message}` : 'Erro ao extrair dados do PDF');
     } finally {
       setExtracting(false);
     }
