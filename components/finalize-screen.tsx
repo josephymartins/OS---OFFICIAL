@@ -79,7 +79,7 @@ export function FinalizeScreen({
       }
     } catch (err: any) {
       console.error('Extract error:', err);
-      toast.error('Erro ao extrair dados do PDF');
+      toast.error(err?.message ? `Erro ao extrair dados do PDF: ${err.message}` : 'Erro ao extrair dados do PDF');
     } finally {
       setExtracting(false);
     }
@@ -205,11 +205,8 @@ export function FinalizeScreen({
       const file = new File([blob], getFileName(), { type: 'application/pdf' });
 
       if (typeof navigator !== 'undefined' && navigator?.canShare?.({ files: [file] })) {
-        await navigator.share({
-          title: `Ordem de Serviço - ${extractedData?.nome_cliente ?? 'Cliente'}`,
-          text: 'Relatório de Ordem de Serviço',
-          files: [file],
-        });
+        // Só o arquivo: com title/text o Google Drive salva também um .txt separado
+        await navigator.share({ files: [file] });
         toast.success('Arquivo compartilhado!');
       } else {
         // Fallback: download the file

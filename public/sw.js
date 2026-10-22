@@ -14,7 +14,8 @@
  *    e falham silenciosamente quando offline (não bloqueiam o app).
  */
 
-const VERSION = 'v2';
+// v3: descarta caches antigos que guardaram a tela de login no lugar do leitor de PDF
+const VERSION = 'v3';
 const STATIC_CACHE = `autocom-static-${VERSION}`;
 const RUNTIME_CACHE = `autocom-runtime-${VERSION}`;
 
@@ -39,8 +40,12 @@ self.addEventListener('install', (event) => {
     (async () => {
       const cache = await caches.open(STATIC_CACHE);
       // allSettled: uma URL que falhe não impede o registro do SW.
+      // Só guarda respostas diretas (sem redirecionamento para o login).
       await Promise.allSettled(
-        PRECACHE_URLS.map((u) => cache.add(new Request(u, { cache: 'reload' })))
+        PRECACHE_URLS.map(async (u) => {
+          const res = await fetch(new Request(u, { cache: 'reload' }));
+          if (isCacheable(res)) await cache.put(u, res);
+        })
       );
       await self.skipWaiting();
     })()
@@ -75,13 +80,26 @@ function isStaticAsset(url) {
   );
 }
 
+/** Resposta boa para guardar: OK e sem redirecionamento (ex.: para /login). */
+function isCacheable(response) {
+  return !!response && response.ok && !response.redirected && response.type === 'basic';
+}
+
+/** Página HTML guardada no lugar de um script/arquivo (cache "envenenado"). */
+function isHtmlInsteadOfAsset(request, response) {
+  const ct = (response.headers.get('content-type') || '').toLowerCase();
+  if (!ct.includes('text/html')) return false;
+  return /\.(?:m?js|css|json|pdf|png|jpe?g|svg|webp|ico|woff2?)$/i.test(new URL(request.url).pathname);
+}
+
 async function cacheFirst(request) {
   const cache = await caches.open(STATIC_CACHE);
   const cached = await cache.match(request);
-  if (cached) return cached;
+  if (cached && !cached.redirected && !isHtmlInsteadOfAsset(request, cached)) return cached;
+  if (cached) await cache.delete(request);
   try {
     const response = await fetch(request);
-    if (response && (response.ok || response.type === 'opaque')) {
+    if (isCacheable(response) && !isHtmlInsteadOfAsset(request, response)) {
       cache.put(request, response.clone());
     }
     return response;
@@ -96,7 +114,7 @@ async function networkFirst(request) {
   const cache = await caches.open(RUNTIME_CACHE);
   try {
     const response = await fetch(request);
-    if (response && response.ok && response.type === 'basic') {
+    if (isCacheable(response)) {
       cache.put(request, response.clone());
     }
     return response;

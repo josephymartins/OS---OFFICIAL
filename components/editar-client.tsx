@@ -213,7 +213,7 @@ export function EditarClient({ id }: { id: string }) {
       toast.success('Dados do cliente preenchidos! Confira e toque em Salvar Alterações.');
     } catch (err) {
       console.error('Extract error:', err);
-      toast.error('Erro ao ler o PDF');
+      toast.error(err instanceof Error && err.message ? `Erro ao ler o PDF: ${err.message}` : 'Erro ao ler o PDF');
     } finally {
       setExtracting(false);
     }
