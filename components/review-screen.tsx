@@ -9,11 +9,22 @@ interface ReviewScreenProps {
   selectedServices: string[];
   observacoes: string;
   backup?: BackupInfo;
+  /** OS duplicada com assinatura: mostra a assinatura e permite reaproveitá-la. */
+  copiedSignature?: string | null;
+  onUseCopiedSignature?: () => void;
   onSign: () => void;
   onBack: () => void;
 }
 
-export function ReviewScreen({ selectedServices, observacoes, backup, onSign, onBack }: ReviewScreenProps) {
+export function ReviewScreen({
+  selectedServices,
+  observacoes,
+  backup,
+  copiedSignature,
+  onUseCopiedSignature,
+  onSign,
+  onBack,
+}: ReviewScreenProps) {
   // Group selected services by category
   const groupedServices = (serviceCategories ?? []).map((cat: any) => ({
     label: cat?.label ?? '',
@@ -86,12 +97,30 @@ export function ReviewScreen({ selectedServices, observacoes, backup, onSign, on
         )}
       </div>
 
-      <div className="mt-6 flex gap-3">
-        <Button onClick={onSign} className="flex-1 h-12 text-base font-semibold rounded-xl">
-          <PenLine className="w-5 h-5 mr-2" />
-          Assinar
-        </Button>
-      </div>
+      {copiedSignature && onUseCopiedSignature ? (
+        <div className="mt-6 space-y-3">
+          <div className="bg-card rounded-xl p-4 shadow-sm text-center">
+            <p className="text-xs text-muted-foreground mb-2">Assinatura do cliente (OS original)</p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={copiedSignature} alt="Assinatura do cliente" className="mx-auto max-h-24 rounded-lg border border-border bg-white p-2" />
+          </div>
+          <Button onClick={onUseCopiedSignature} className="w-full h-12 text-base font-semibold rounded-xl">
+            <CheckCircle2 className="w-5 h-5 mr-2" />
+            Usar assinatura da OS original
+          </Button>
+          <Button variant="outline" onClick={onSign} className="w-full h-11 font-semibold rounded-xl">
+            <PenLine className="w-5 h-5 mr-2" />
+            Assinar novamente
+          </Button>
+        </div>
+      ) : (
+        <div className="mt-6 flex gap-3">
+          <Button onClick={onSign} className="flex-1 h-12 text-base font-semibold rounded-xl">
+            <PenLine className="w-5 h-5 mr-2" />
+            Assinar
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
