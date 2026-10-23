@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { ChevronRight, History, Signature } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,9 @@ import { LogoutButton } from '@/components/logout-button';
 import { SyncStatus } from '@/components/sync-status';
 import { BackupFields } from '@/components/backup-fields';
 import { ServiceTemplates } from '@/components/service-templates';
-import { EMPTY_BACKUP, backupError, hasBackup, type BackupInfo } from '@/lib/backup-info';
+import { EMPTY_BACKUP, backupError, backupFromOrder, hasBackup, type BackupInfo } from '@/lib/backup-info';
+import { getOrder } from '@/lib/offline/orders';
+import { orderToPrefill, servicesOf, type DuplicatePrefill } from '@/lib/duplicate';
 
 type Step = 'select' | 'review' | 'signature' | 'finalize';
 
@@ -25,6 +27,30 @@ export function HomeClient({ userName }: { userName: string }) {
   const [observacoes, setObservacoes] = useState('');
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [backup, setBackup] = useState<BackupInfo>(EMPTY_BACKUP);
+  const [prefill, setPrefill] = useState<DuplicatePrefill | null>(null);
+
+  // "Duplicar" no histórico abre /?duplicar=<id>: copia a OS (menos data, horários e assinatura)
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('duplicar');
+    if (!id) return;
+    window.history.replaceState(null, '', window.location.pathname);
+    (async () => {
+      try {
+        const order = await getOrder(id);
+        if (!order) {
+          toast.error('OS não encontrada para duplicar');
+          return;
+        }
+        setSelectedServices(servicesOf(order));
+        setObservacoes(order.observacoes ?? '');
+        setBackup(backupFromOrder(order));
+        setPrefill(orderToPrefill(order));
+        toast.success('OS copiada! Acrescente o que mais foi feito e siga para a assinatura.');
+      } catch {
+        toast.error('Não foi possível copiar a OS. Verifique a internet e tente de novo.');
+      }
+    })();
+  }, []);
 
   const handleViewReport = useCallback(() => {
     if ((selectedServices?.length ?? 0) === 0 && !hasBackup(backup)) {
@@ -60,6 +86,7 @@ export function HomeClient({ userName }: { userName: string }) {
     setObservacoes('');
     setSignatureData(null);
     setBackup(EMPTY_BACKUP);
+    setPrefill(null);
   }, []);
 
   const slideVariants = {
@@ -109,6 +136,18 @@ export function HomeClient({ userName }: { userName: string }) {
               exit="exit"
               transition={{ duration: 0.25 }}
             >
+              {prefill && (
+                <div className="mb-4 flex items-start justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs">
+                  <p>
+                    <span className="font-semibold text-primary">Duplicando a OS de {prefill.sourceLabel}.</span>{' '}
+                    Os dados do cliente, serviços e backup foram copiados. Marque o que mais foi feito e siga para a
+                    assinatura — data, horários e assinatura serão novos.
+                  </p>
+                  <button type="button" onClick={handleReset} className="shrink-0 font-medium text-muted-foreground underline">
+                    Cancelar
+                  </button>
+                </div>
+              )}
               <div className="text-center mb-6">
                 <h1 className="text-xl font-display font-bold tracking-tight">Ordem de Serviço - Uso Externo</h1>
                 <p className="text-sm text-muted-foreground mt-1">Selecione os serviços realizados</p>
@@ -197,6 +236,7 @@ export function HomeClient({ userName }: { userName: string }) {
                 observacoes={observacoes}
                 signatureData={signatureData}
                 backup={backup}
+                prefill={prefill}
                 onBack={handleBack}
                 onReset={handleReset}
               />
