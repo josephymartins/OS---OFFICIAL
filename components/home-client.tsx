@@ -28,6 +28,8 @@ export function HomeClient({ userName }: { userName: string }) {
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [backup, setBackup] = useState<BackupInfo>(EMPTY_BACKUP);
   const [prefill, setPrefill] = useState<DuplicatePrefill | null>(null);
+  // true quando a OS duplicada usou a assinatura copiada (pulou a tela de assinatura)
+  const [usedCopiedSignature, setUsedCopiedSignature] = useState(false);
 
   // "Duplicar" no histórico abre /?duplicar=<id>: copia a OS (menos data, horários e assinatura)
   useEffect(() => {
@@ -45,7 +47,9 @@ export function HomeClient({ userName }: { userName: string }) {
         setObservacoes(order.observacoes ?? '');
         setBackup(backupFromOrder(order));
         setPrefill(orderToPrefill(order));
-        toast.success('OS copiada! Acrescente o que mais foi feito e siga para a assinatura.');
+        // Assinatura do cliente também é copiada (pode assinar de novo na revisão)
+        setSignatureData(order.signatureData ?? null);
+        toast.success('OS copiada! Acrescente o que mais foi feito e siga para a revisão.');
       } catch {
         toast.error('Não foi possível copiar a OS. Verifique a internet e tente de novo.');
       }
@@ -70,6 +74,7 @@ export function HomeClient({ userName }: { userName: string }) {
   }, []);
 
   const handleSaveSignature = useCallback((data: string) => {
+    setUsedCopiedSignature(false);
     setSignatureData(data);
     setStep('finalize');
   }, []);
@@ -77,8 +82,8 @@ export function HomeClient({ userName }: { userName: string }) {
   const handleBack = useCallback(() => {
     if (step === 'review') setStep('select');
     else if (step === 'signature') setStep('review');
-    else if (step === 'finalize') setStep('signature');
-  }, [step]);
+    else if (step === 'finalize') setStep(usedCopiedSignature ? 'review' : 'signature');
+  }, [step, usedCopiedSignature]);
 
   const handleReset = useCallback(() => {
     setStep('select');
@@ -87,6 +92,7 @@ export function HomeClient({ userName }: { userName: string }) {
     setSignatureData(null);
     setBackup(EMPTY_BACKUP);
     setPrefill(null);
+    setUsedCopiedSignature(false);
   }, []);
 
   const slideVariants = {
@@ -140,8 +146,8 @@ export function HomeClient({ userName }: { userName: string }) {
                 <div className="mb-4 flex items-start justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs">
                   <p>
                     <span className="font-semibold text-primary">Duplicando a OS de {prefill.sourceLabel}.</span>{' '}
-                    Os dados do cliente, serviços e backup foram copiados. Marque o que mais foi feito e siga para a
-                    assinatura — data, horários e assinatura serão novos.
+                    Os dados do cliente, serviços, backup e a assinatura foram copiados. Marque o que mais foi feito e
+                    siga — na revisão você usa a mesma assinatura ou assina de novo. Data e horários serão do dia.
                   </p>
                   <button type="button" onClick={handleReset} className="shrink-0 font-medium text-muted-foreground underline">
                     Cancelar
@@ -200,6 +206,11 @@ export function HomeClient({ userName }: { userName: string }) {
                 selectedServices={selectedServices}
                 observacoes={observacoes}
                 backup={backup}
+                copiedSignature={prefill ? signatureData : null}
+                onUseCopiedSignature={() => {
+                  setUsedCopiedSignature(true);
+                  setStep('finalize');
+                }}
                 onSign={handleGoToSignature}
                 onBack={handleBack}
               />
