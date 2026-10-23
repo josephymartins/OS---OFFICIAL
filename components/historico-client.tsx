@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   ArrowLeft, ClipboardList, Calendar, User, Hash, Loader2, FileDown,
   Search, MoreVertical, Pencil, Trash2, Download, Upload, Archive, ArchiveRestore,
-  FileSpreadsheet, MessageCircle, Users, Eye,
+  FileSpreadsheet, MessageCircle, Users, Eye, Copy,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -457,6 +457,11 @@ export function HistoricoClient() {
                             <MessageCircle className="w-4 h-4 mr-2" /> Enviar pelo WhatsApp
                           </DropdownMenuItem>
                         )}
+                        <DropdownMenuItem asChild>
+                          <Link href={`/?duplicar=${encodeURIComponent(order.id)}`}>
+                            <Copy className="w-4 h-4 mr-2" /> Duplicar
+                          </Link>
+                        </DropdownMenuItem>
                         {!isMine(order) ? (
                           <DropdownMenuItem asChild>
                             <Link href={`/editar/${order.id}`}>

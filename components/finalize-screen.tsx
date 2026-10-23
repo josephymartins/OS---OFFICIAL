@@ -13,12 +13,15 @@ import { EMPTY_BACKUP, backupToFields, type BackupInfo } from '@/lib/backup-info
 import { getTechnicianSignature } from '@/lib/technician';
 import { getMe } from '@/lib/me';
 import { sharePdfViaWhatsApp, whatsappMessage } from '@/lib/share';
+import type { DuplicatePrefill } from '@/lib/duplicate';
 
 interface FinalizeScreenProps {
   selectedServices: string[];
   observacoes: string;
   signatureData: string | null;
   backup?: BackupInfo;
+  /** OS duplicada: dados do cliente já preenchidos (sem precisar anexar o PDF). */
+  prefill?: DuplicatePrefill | null;
   onBack: () => void;
   onReset: () => void;
 }
@@ -28,16 +31,17 @@ export function FinalizeScreen({
   observacoes,
   signatureData,
   backup = EMPTY_BACKUP,
+  prefill = null,
   onBack,
   onReset,
 }: FinalizeScreenProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [responsavel, setResponsavel] = useState('');
+  const [responsavel, setResponsavel] = useState(prefill?.responsavel ?? '');
   const [dataAtendimento, setDataAtendimento] = useState('');
   const [horaEntrada, setHoraEntrada] = useState('');
   const [horaSaida, setHoraSaida] = useState('');
   const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [extractedData, setExtractedData] = useState<any>(null);
+  const [extractedData, setExtractedData] = useState<any>(prefill?.extractedData ?? null);
   const [extracting, setExtracting] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [done, setDone] = useState(false);
@@ -113,7 +117,7 @@ export function FinalizeScreen({
         observacoes: observacoes ?? '',
         signatureData: signatureData ?? null,
         ...backupToFields(backup),
-        pdfFileName: pdfFile?.name ?? null,
+        pdfFileName: pdfFile?.name ?? prefill?.pdfFileName ?? null,
         status: 'finalizado',
         pdfBlob: blob,
       });
@@ -152,7 +156,7 @@ export function FinalizeScreen({
         horaSaida,
         extractedData: extractedData ?? {},
         backup,
-        uploadedFileName: pdfFile?.name ?? undefined,
+        uploadedFileName: pdfFile?.name ?? prefill?.pdfFileName ?? undefined,
       });
 
       const url = URL.createObjectURL(blob);
@@ -174,7 +178,7 @@ export function FinalizeScreen({
 
   const getFileName = () => {
     if (finalFileName) return finalFileName;
-    return signedPdfFileName(pdfFile?.name || extractedData?.nome_cliente || 'cliente');
+    return signedPdfFileName(pdfFile?.name || prefill?.pdfFileName || extractedData?.nome_cliente || 'cliente');
   };
 
   const handleDownload = () => {
@@ -344,7 +348,9 @@ export function FinalizeScreen({
 
           {extractedData && (
             <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
-              <p className="text-xs font-semibold text-green-800 mb-1">Dados extraídos:</p>
+              <p className="text-xs font-semibold text-green-800 mb-1">
+                {!pdfFile && prefill ? 'Dados copiados da OS original:' : 'Dados extraídos:'}
+              </p>
               <p className="text-xs text-green-700">{extractedData?.nome_cliente ?? 'N/A'}</p>
               {extractedData?.fantasia && (
                 <p className="text-xs text-green-700">{extractedData.fantasia}</p>
